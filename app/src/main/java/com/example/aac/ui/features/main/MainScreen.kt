@@ -76,8 +76,8 @@ fun TopSection() {
 fun CategoryRow() {
     Row(
         modifier = Modifier
-            .fillMaxWidth()
-            .height(90.dp)
+            .width(1137.dp)
+            .height(68.dp)
             .background(Color(0xFF4A90E2))
             .padding(horizontal = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
