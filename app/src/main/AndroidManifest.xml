@@ -13,9 +13,11 @@
         android:theme="@style/Theme.Aac">
 
         <activity
-            android:name="com.example.aac.ui.features.login.LoginActivity"
-            android:exported="true">
-
+            android:name=".MainActivity"
+            android:exported="true"
+            android:screenOrientation="landscape"
+            android:label="@string/app_name"
+            android:theme="@style/Theme.Aac">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
