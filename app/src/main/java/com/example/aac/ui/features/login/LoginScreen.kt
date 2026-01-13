@@ -1,4 +1,4 @@
-package com.example.aac.ui.login
+package com.example.aac.ui.features.login
 
 import android.content.res.Configuration
 import androidx.annotation.DrawableRes

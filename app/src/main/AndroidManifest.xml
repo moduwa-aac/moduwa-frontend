@@ -13,7 +13,7 @@
         android:theme="@style/Theme.Aac">
 
         <activity
-            android:name="com.example.aac.ui.login.LoginActivity"
+            android:name="com.example.aac.ui.features.login.LoginActivity"
             android:exported="true">
 
             <intent-filter>
