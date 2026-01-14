@@ -2,7 +2,7 @@ package com.example.aac.ui.features.main
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -26,15 +26,61 @@ val CategoryUnselectedGray = Color(0xFFE0E0E0)
 
 @Composable
 fun MainScreen() {
-    Row(modifier = Modifier.fillMaxSize().background(Color.White)) {
-        Column(modifier = Modifier.weight(1f).fillMaxHeight()) {
+    Row(modifier = Modifier
+        .fillMaxSize()
+        .background(Color.White)) {
+        Column(modifier = Modifier
+            .weight(1f)
+            .fillMaxHeight()) {
             TopSection()
-            CategoryRow()
-            Box(modifier = Modifier.weight(1f).fillMaxWidth().background(Color(0xFFEEEEEE))) {
-                Text("카드 영역", modifier = Modifier.align(Alignment.Center), color = Color.Gray)
+
+            Row(modifier = Modifier
+                .fillMaxWidth()
+                .height(68.dp)
+                .padding(horizontal = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                CategoryRow(modifier = Modifier.weight(1f))
+                IconButton(onClick = {}, modifier = Modifier.size(48.dp)) {
+                    Image(painter = painterResource(R.drawable.ic_setting), contentDescription = "설정")
+                }
+            }
+
+            // Main content row: CardsArea | CardScrollBar (up/down) | Reaction buttons (긍정..청유)
+            Row(modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth()) {
+                CardsArea(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                )
+
+                CardScrollBar()
+
+                // Reaction buttons column placed in the same horizontal row (previously RightSideBar)
+                Column(
+                    modifier = Modifier
+                        .width(80.dp)
+                        .fillMaxHeight()
+                        .background(Color(0xFFEEEEEE))
+                        .padding(6.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    // Keep buttons grouped vertically; positioned inside same Row horizontally
+                    Spacer(modifier = Modifier.weight(1f))
+
+                    SmallReactionButton(iconRes = R.drawable.ic_positive, text = "긍정")
+                    SmallReactionButton(iconRes = R.drawable.ic_negative, text = "부정")
+                    SmallReactionButton(iconRes = R.drawable.ic_question, text = "질문")
+                    SmallReactionButton(iconRes = R.drawable.ic_request, text = "부탁")
+                    SmallReactionButton(iconRes = R.drawable.ic_suggestion, text = "청유")
+                }
             }
         }
-        RightSideBar()
+
+        // Removed separate RightSideBar() call — reactions moved into the main row
     }
 }
 
@@ -49,41 +95,56 @@ fun TopSection() {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        // 2번: 키보드 버튼
-        RoundedIconButton(iconRes = R.drawable.ic_keyboard, text = "키보드")
+        // Selected cards area (fills remaining space)
+        CardsSelectedArea(modifier = Modifier.weight(1f))
 
-        // 입력창
-        Box(
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxHeight()
-                .background(Color.White, RoundedCornerShape(12.dp))
-                .padding(horizontal = 12.dp),
-            contentAlignment = Alignment.CenterStart
-        ) {
-            Text("낱말 카드를 선택하거나 키보드로 입력하세요.", color = Color.Gray, fontSize = 14.sp)
-        }
-
-        // 5번: 문장완성 버튼
+        // 문장완성 버튼 (RoundedIconButton moved to ButtonComponents.kt)
         RoundedIconButton(iconRes = R.drawable.btn_ai, text = "문장완성", containerColor = BluePrimary, contentColor = Color.White)
 
-        // 6번: 재생 버튼
+        // 재생 버튼
         RoundedIconButton(iconRes = R.drawable.btn_play, text = "재생", containerColor = BluePrimary, contentColor = Color.White)
     }
 }
 
+// New small composable to show chosen/selected cards at the top (horizontal list placeholder)
 @Composable
-fun CategoryRow() {
+fun CardsSelectedArea(modifier: Modifier = Modifier) {
+    val scrollState = rememberScrollState()
     Row(
-        modifier = Modifier
-            .width(1137.dp)
+        modifier = modifier
+            .fillMaxHeight()
+            .horizontalScroll(scrollState)
+            .background(Color.White, RoundedCornerShape(8.dp))
+            .padding(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        // simple selected-card placeholders
+        for (i in 1..5) {
+            Box(
+                modifier = Modifier
+                    .size(width = 120.dp, height = 72.dp)
+                    .background(Color(0xFFF9F9F9), RoundedCornerShape(8.dp))
+                    .padding(8.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(text = "선택 카드 $i", fontSize = 14.sp, color = Color.Gray)
+            }
+        }
+    }
+}
+
+@Composable
+fun CategoryRow(modifier: Modifier = Modifier) {
+    Row(
+        modifier = modifier
             .height(68.dp)
-            .background(Color(0xFF4A90E2))
+            .background(BluePrimary)
             .padding(horizontal = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        // 3번: 왼쪽 화살표
+        // 왼쪽 화살표
         IconButton(onClick = {}, modifier = Modifier.size(40.dp)) {
             Image(painter = painterResource(R.drawable.btn_prev), contentDescription = "이전")
         }
@@ -107,105 +168,5 @@ fun CategoryRow() {
         IconButton(onClick = {}, modifier = Modifier.size(40.dp)) {
             Image(painter = painterResource(R.drawable.btn_next), contentDescription = "다음")
         }
-    }
-}
-
-@Composable
-fun RightSideBar() {
-    Column(
-        modifier = Modifier
-            .width(80.dp)
-            .fillMaxHeight()
-            .background(Color(0xFF4A90E2))
-            .padding(6.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(6.dp)
-    ) {
-        SmallRoundedIconButton(iconRes = R.drawable.ic_setting, text = "설정", containerColor = Color.White)
-
-        SmallReactionButton(iconRes = R.drawable.ic_good, text = "좋아요")
-        SmallReactionButton(iconRes = R.drawable.ic_bad, text = "싫어요")
-        SmallReactionButton(iconRes = R.drawable.ic_question, text = "질문")
-        SmallReactionButton(iconRes = R.drawable.ic_help, text = "해주세요")
-        SmallReactionButton(iconRes = R.drawable.ic_do, text = "합시다")
-    }
-}
-
-
-@Composable
-fun RoundedIconButton(
-    iconRes: Int,
-    text: String,
-    containerColor: Color = Color.White,
-    contentColor: Color = Color.Black
-) {
-    Column(
-        modifier = Modifier
-            .wrapContentSize()
-            .background(containerColor, RoundedCornerShape(8.dp))
-            .padding(vertical = 8.dp, horizontal = 12.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(4.dp)
-    ) {
-        Image(painter = painterResource(iconRes), contentDescription = text, modifier = Modifier.size(32.dp))
-        Text(text, fontSize = 12.sp, color = contentColor, fontWeight = FontWeight.Bold)
-    }
-}
-
-@Composable
-fun CategoryTab(
-    iconRes: Int,
-    text: String,
-    isSelected: Boolean,
-    modifier: Modifier = Modifier
-) {
-    val bgColor = if (isSelected) Color.White else Color.Transparent
-    val textColor = if (isSelected) BluePrimary else Color.White
-
-    Column(
-        modifier = modifier
-            .fillMaxHeight()
-            .background(bgColor, RoundedCornerShape(8.dp))
-            .padding(6.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        Image(painter = painterResource(iconRes), contentDescription = text, modifier = Modifier.size(32.dp))
-        Text(text, fontSize = 11.sp, color = textColor, fontWeight = FontWeight.Bold)
-    }
-}
-
-@Composable
-fun SmallRoundedIconButton(
-    iconRes: Int,
-    text: String,
-    containerColor: Color = Color.White,
-    contentColor: Color = Color.Black
-) {
-    Column(
-        modifier = Modifier
-            .wrapContentSize()
-            .background(containerColor, RoundedCornerShape(6.dp))
-            .padding(vertical = 4.dp, horizontal = 8.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(2.dp)
-    ) {
-        Image(painter = painterResource(iconRes), contentDescription = text, modifier = Modifier.size(24.dp))
-        Text(text, fontSize = 9.sp, color = contentColor, fontWeight = FontWeight.Bold)
-    }
-}
-
-@Composable
-fun SmallReactionButton(iconRes: Int, text: String) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(Color(0xFF666666), RoundedCornerShape(6.dp))
-            .padding(vertical = 4.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(2.dp)
-    ) {
-        Image(painter = painterResource(iconRes), contentDescription = text, modifier = Modifier.size(28.dp))
-        Text(text, fontSize = 8.sp, color = Color.White, fontWeight = FontWeight.Bold)
     }
 }
