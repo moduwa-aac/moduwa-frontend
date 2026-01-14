@@ -4,6 +4,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import com.example.aac.core.navigation.AppNavGraph
 import com.example.aac.ui.features.main.MainScreen
 import com.example.aac.ui.theme.AacTheme
 
@@ -15,6 +16,15 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             AacTheme {
+                AppNavGraph()
+            }
+        }
+    }
+
+
+}
+
+
                 MainScreen()
             }
         }
