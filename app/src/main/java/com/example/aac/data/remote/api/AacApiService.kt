@@ -1,15 +1,16 @@
 package com.example.aac.data.remote.api
-
 import com.example.aac.data.remote.dto.GridSettingRequest
 import com.example.aac.data.remote.dto.GridSettingResponse
 import com.example.aac.data.remote.dto.GuestLoginRequest
 import com.example.aac.data.remote.dto.GuestLoginResponse
+import com.example.aac.data.remote.dto.HistoryResponse
 import com.example.aac.data.remote.dto.WordResponse
 import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.PATCH
 import retrofit2.http.POST
 import retrofit2.http.Query
+import java.time.Year
 
 interface AacApiService {
 
@@ -32,4 +33,9 @@ interface AacApiService {
     suspend fun updateGridSetting(
         @Body request: GridSettingRequest
     ): GridSettingResponse
+    @GET("api/histories")
+    suspend fun getHistories(
+        @Query("year") year: Int,
+        @Query("month") month: Int
+    ): HistoryResponse
 }

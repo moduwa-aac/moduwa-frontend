@@ -14,7 +14,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.RectangleShape // 👈 추가
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.TextStyle
@@ -24,12 +24,12 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.aac.R
-import com.example.aac.ui.features.usage_history.UsageRecord
+import com.example.aac.domain.model.UsageHistory // ✅ 여기가 중요! (새 모델 import)
 
 @Composable
 fun UsageHistoryItem(
-    record: UsageRecord,
-    isFirstItem: Boolean, // ✅ 첫 번째 아이템 여부 전달받음
+    record: UsageHistory, // ✅ 타입 변경 (UsageRecord -> UsageHistory)
+    isFirstItem: Boolean,
     isSelectionMode: Boolean,
     isSelected: Boolean,
     onSelectionClick: () -> Unit,
@@ -78,8 +78,9 @@ fun UsageHistoryItem(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.Center
             ) {
+                // ✅ 수정됨: record.text -> record.sentence
                 Text(
-                    text = record.text,
+                    text = record.sentence,
                     style = commonTextStyle.copy(
                         fontSize = 24.sp,
                         fontWeight = FontWeight.Normal,
@@ -89,8 +90,10 @@ fun UsageHistoryItem(
                     maxLines = 1
                 )
                 Spacer(modifier = Modifier.height(4.dp))
+
+                // ✅ 수정됨: record.timestamp -> record.data
                 Text(
-                    text = record.timestamp,
+                    text = record.date,
                     style = commonTextStyle.copy(
                         fontSize = 15.sp,
                         fontWeight = FontWeight.Medium,

@@ -10,7 +10,6 @@ class AuthInterceptor(
 
     override fun intercept(chain: Interceptor.Chain): Response {
         val originalRequest = chain.request()
-
         // 1. Provider를 통해 토큰 가져오기 (여기서 잠깐 멈춤)
         val accessToken = tokenProvider.getAccessToken()
 

@@ -21,7 +21,9 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel // ViewModel 추가
 import com.example.aac.R
+import com.example.aac.domain.model.UsageHistory
 import com.example.aac.ui.components.CustomTopBar
 import com.example.aac.ui.components.CommonDeleteDialog
 import com.example.aac.ui.features.usage_history.components.UsageHistoryDatePicker
@@ -31,6 +33,8 @@ import com.example.aac.ui.features.usage_history.components.UsageHistoryItem
 @Composable
 fun UsageHistoryScreen(
     onBackClick: () -> Unit = {},
+    // ViewModel 주입 (기본값 설정)
+    viewModel: UsageHistoryViewModel = viewModel()
 ) {
     var selectedYear by remember { mutableIntStateOf(2025) }
     var selectedMonth by remember { mutableIntStateOf(12) }
@@ -42,19 +46,16 @@ fun UsageHistoryScreen(
     var showDeleteConfirmDialog by remember { mutableStateOf(false) }
     var isDeleteAllMode by remember { mutableStateOf(false) }
 
-    val historyList: SnapshotStateList<UsageRecord> = remember {
-        mutableStateListOf(
-            UsageRecord(1L, "어제 먹었던 반찬 그대로 먹나요?", "12/27 16:42"),
-            UsageRecord(2L, "엄마 밥 주세요.", "12/27 16:42"),
-            UsageRecord(3L, "배가 너무 고파요.", "12/27 16:41"),
-            UsageRecord(4L, "아니요. 안 먹었어요.", "12/27 16:42"),
-            UsageRecord(5L, "그건 맞죠.", "12/27 16:41"),
-            UsageRecord(6L, "아니에요.", "12/27 16:42"),
-            UsageRecord(7L, "모르겠는데요.", "12/27 16:42")
-        )
+    // 1. ViewModel의 데이터를 구독 (서버에서 온 데이터가 여기로 들어옴)
+    val historyList by viewModel.histories.collectAsState()
+
+    // 2. 연도나 월이 바뀌면 서버에 데이터 요청 (자동 실행)
+    LaunchedEffect(selectedYear, selectedMonth) {
+        viewModel.fetchHistories(selectedYear, selectedMonth)
     }
 
-    val selectedIds: SnapshotStateList<Long> = remember { mutableStateListOf() }
+    // 3. ID 타입 변경: 서버 ID는 String(UUID)이므로 Long -> String으로 변경
+    val selectedIds: SnapshotStateList<String> = remember { mutableStateListOf() }
 
     val menuTextStyle = TextStyle(
         fontSize = 24.sp,
@@ -190,7 +191,7 @@ fun UsageHistoryScreen(
                 ) {
                     itemsIndexed(historyList) { index, record ->
                         UsageHistoryItem(
-                            record = record,
+                            record = record, // UsageHistory 객체 전달
                             isFirstItem = (index == 0),
                             isSelectionMode = isSelectionMode,
                             isSelected = record.id in selectedIds,
@@ -231,14 +232,21 @@ fun UsageHistoryScreen(
                 onDismiss = { showDeleteConfirmDialog = false },
                 onDelete = {
                     if (isDeleteAllMode) {
-                        historyList.clear()
+                        // TODO: ViewModel의 전체 삭제 API 함수 호출
+                        // viewModel.deleteAll(selectedYear, selectedMonth)
                     } else {
-                        val toRemove = historyList.filter { it.id in selectedIds }
-                        historyList.removeAll(toRemove)
+                        // TODO: ViewModel의 선택 삭제 API 함수 호출
+                        // viewModel.deleteItems(selectedIds.toList())
                     }
+
+                    // historyList.clear() -> ⚠️ 불가능: 서버 데이터는 UI에서 직접 지울 수 없음
+                    // 일단 선택 상태만 초기화합니다.
                     selectedIds.clear()
                     isSelectionMode = false
                     showDeleteConfirmDialog = false
+
+                    // (임시) 삭제 후 목록 갱신을 위해 다시 불러오기
+                    // viewModel.fetchHistories(selectedYear, selectedMonth)
                 }
             )
         }
@@ -251,5 +259,6 @@ fun UsageHistoryScreen(
 )
 @Composable
 fun UsageHistoryScreenPreview() {
-    UsageHistoryScreen()
+    // 미리보기에서는 ViewModel 주입이 어려우므로 빈 화면이 나올 수 있습니다.
+    // Preview용 Mock 데이터를 만들거나 별도의 PreviewWrapper가 필요합니다.
 }
