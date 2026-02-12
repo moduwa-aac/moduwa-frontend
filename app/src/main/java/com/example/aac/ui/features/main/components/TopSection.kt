@@ -49,7 +49,7 @@ fun TopSection(
         modifier = Modifier
             .fillMaxWidth()
             .wrapContentHeight()
-            .background(Color(0xFFE3F2FD))
+            .background(Color(0xFFD7E6F9))
             .animateContentSize()
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
