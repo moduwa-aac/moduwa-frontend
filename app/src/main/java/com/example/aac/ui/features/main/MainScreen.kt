@@ -67,6 +67,7 @@ fun MainScreen(
                 selectedCards = selectedCards,
                 onRemoveCard = { index -> viewModel.removeCard(index) },
                 onClearAll = { viewModel.clearSelectedCards() },
+                onMoveCard = { from, to -> viewModel.moveCard(from, to) },
                 onNavigateToAiSentence = {
                     SentenceDataRepository.selectedWords = selectedCards
                     onNavigateToAiSentence()

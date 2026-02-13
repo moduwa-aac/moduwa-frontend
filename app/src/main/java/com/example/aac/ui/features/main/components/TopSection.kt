@@ -3,7 +3,6 @@ package com.example.aac.ui.features.main.components
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
@@ -25,6 +24,9 @@ import androidx.compose.ui.unit.sp
 import com.example.aac.R
 import com.example.aac.data.remote.dto.MainWordItem
 import com.example.aac.ui.components.WordCard
+// ✅ 드래그 앤 드롭 유틸리티 import (패키지명이 다르면 수정해주세요)
+import com.example.aac.ui.util.dragAndDropItem
+import com.example.aac.ui.util.rememberDragDropState
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -32,11 +34,14 @@ fun TopSection(
     selectedCards: List<MainWordItem>,
     onRemoveCard: (Int) -> Unit,
     onClearAll: () -> Unit,
+    onMoveCard: (Int, Int) -> Unit,
     onNavigateToAiSentence: () -> Unit = {}
 ) {
     var isMultiLine by remember { mutableStateOf(false) }
-
     var deleteTargetIndex by remember { mutableIntStateOf(-1) }
+
+    // ✅ 드래그 상태 관리 생성
+    val dragDropState = rememberDragDropState(onMove = onMoveCard)
 
     LaunchedEffect(selectedCards) {
         deleteTargetIndex = -1
@@ -90,36 +95,47 @@ fun TopSection(
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     selectedCards.forEachIndexed { index, card ->
-                        val isDeleteMode = (deleteTargetIndex == index)
+                        // ✅ 순서 변경 시 UI 꼬임 방지를 위해 고유 Key 사용 (cardId 권장)
+                        key(card.cardId) {
+                            val isDeleteMode = (deleteTargetIndex == index)
 
-                        Box(contentAlignment = Alignment.Center) {
-                            WordCard(
-                                text = card.word,
-                                imageUrl = card.imageUrl,
-                                partOfSpeech = card.partOfSpeech,
-                                modifier = Modifier.size(86.dp),
-                                cornerRadius = 8.dp,
-                                fontSize = 14.sp,
-                                iconSize = 40.dp,
-                                borderColor = if (isDeleteMode) Color.Red else null,
-                                onClick = {
-                                    if (isDeleteMode) {
-                                        onRemoveCard(index)
-                                        deleteTargetIndex = -1 // 상태 초기화
-                                    } else {
-                                        deleteTargetIndex = index
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier
+                                    // ✅ 드래그 앤 드롭 Modifier 적용
+                                    .dragAndDropItem(index, dragDropState)
+                            ) {
+                                WordCard(
+                                    text = card.word,
+                                    imageUrl = card.imageUrl,
+                                    partOfSpeech = card.partOfSpeech,
+                                    modifier = Modifier.size(86.dp),
+                                    cornerRadius = 8.dp,
+                                    fontSize = 14.sp,
+                                    iconSize = 40.dp,
+                                    borderColor = if (isDeleteMode) Color.Red else null,
+                                    onClick = {
+                                        // ✅ 드래그 중이 아닐 때만 클릭 이벤트(삭제 모드) 동작
+                                        if (dragDropState.draggingItemIndex == null) {
+                                            if (isDeleteMode) {
+                                                onRemoveCard(index)
+                                                deleteTargetIndex = -1 // 상태 초기화
+                                            } else {
+                                                deleteTargetIndex = index
+                                            }
+                                        }
                                     }
-                                }
-                            )
-
-                            if (isDeleteMode) {
-                                Image(
-                                    painter = painterResource(id = R.drawable.ic_delete),
-                                    contentDescription = "삭제 대기",
-                                    modifier = Modifier
-                                        .size(32.dp)
-                                        .align(Alignment.Center)
                                 )
+
+                                if (isDeleteMode) {
+                                    Image(
+                                        painter = painterResource(id = R.drawable.ic_delete),
+                                        contentDescription = "삭제 대기",
+                                        modifier = Modifier
+                                            .size(32.dp)
+                                            .align(Alignment.Center)
+                                    )
+                                }
                             }
                         }
                     }
@@ -149,7 +165,7 @@ fun TopSection(
 
         Surface(
             modifier = Modifier.size(92.dp),
-            color = Color.Transparent,
+            color = Color.Transparent, // Brush 적용을 위해 Transparent
             shape = RoundedCornerShape(12.dp),
             onClick = { if (aiButtonEnabled) onNavigateToAiSentence() },
             shadowElevation = if (aiButtonEnabled) 2.dp else 0.dp,
@@ -161,7 +177,7 @@ fun TopSection(
                 modifier = Modifier
                     .fillMaxSize()
                     .background(
-                        if (aiButtonEnabled) {
+                        brush = if (aiButtonEnabled) {
                             Brush.linearGradient(
                                 colors = listOf(Color(0xFF0080FF), Color(0xFFE8C2EC)),
                                 start = Offset(0f, Float.POSITIVE_INFINITY),

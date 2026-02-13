@@ -89,6 +89,16 @@ class AiSentenceViewModel : ViewModel() {
 
     fun onEvent(event: AiSentenceUiEvent) {
     }
+
+    fun moveWord(fromIndex: Int, toIndex: Int) {
+        val currentList = _uiState.value.selectedWords.toMutableList()
+        if (fromIndex in currentList.indices && toIndex in currentList.indices) {
+            java.util.Collections.swap(currentList, fromIndex, toIndex)
+            _uiState.value = _uiState.value.copy(selectedWords = currentList)
+
+            fetchAiSentences(currentList.map { it.word }, isRefresh = false)
+        }
+    }
 }
 
 sealed class AiSentenceUiEvent {

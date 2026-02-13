@@ -22,6 +22,9 @@ import com.example.aac.data.remote.dto.MainWordItem
 import com.example.aac.feature.ai_sentence.ui.components.SentenceCard
 import com.example.aac.ui.components.CustomTopBar
 import com.example.aac.ui.components.WordCard
+// ✅ 드래그 유틸리티 import (패키지명 확인 필요)
+import com.example.aac.ui.util.dragAndDropItem
+import com.example.aac.ui.util.rememberDragDropState
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -33,6 +36,10 @@ fun AiSentenceScreen(
     vm: AiSentenceViewModel = viewModel()
 ) {
     val state by vm.uiState.collectAsState()
+
+    val dragDropState = rememberDragDropState(onMove = { from, to ->
+        vm.moveWord(from, to)
+    })
 
     LaunchedEffect(Unit) {
         if (state.selectedWords.isEmpty() && initialWords.isNotEmpty()) {
@@ -89,6 +96,7 @@ fun AiSentenceScreen(
                 .padding(12.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
+            // 1. 상단 라벨 및 스위치
             Row(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -129,6 +137,7 @@ fun AiSentenceScreen(
                 }
             }
 
+            // 2. 단어 리스트 컨테이너
             Surface(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
@@ -139,6 +148,7 @@ fun AiSentenceScreen(
                     modifier = Modifier.padding(12.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                    // 2-1. 단어들 (드래그 적용)
                     Row(
                         modifier = Modifier.weight(1f),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -147,33 +157,40 @@ fun AiSentenceScreen(
                         state.selectedWords.forEachIndexed { index, item ->
                             val isDeleteMode = (deleteTargetIndex == index)
 
-                            Box(contentAlignment = Alignment.Center) {
-                                WordCard(
-                                    text = item.word,
-                                    imageUrl = item.imageUrl,
-                                    partOfSpeech = item.partOfSpeech,
-                                    modifier = Modifier.size(86.dp),
-                                    cornerRadius = 12.dp, // 디자인에 맞게 조절
-                                    fontSize = 14.sp,
-                                    iconSize = 40.dp,
-                                    // ✅ 삭제 모드일 때 테두리 빨강
-                                    borderColor = if (isDeleteMode) Color.Red else null,
-                                    onClick = {
-                                        if (isDeleteMode) {
-                                            vm.removeWord(index)
-                                            deleteTargetIndex = -1
-                                        } else {
-                                            deleteTargetIndex = index
+                            key(item.cardId) {
+                                Box(
+                                    contentAlignment = Alignment.Center,
+                                    modifier = Modifier
+                                        .dragAndDropItem(index, dragDropState)
+                                ) {
+                                    WordCard(
+                                        text = item.word,
+                                        imageUrl = item.imageUrl,
+                                        partOfSpeech = item.partOfSpeech,
+                                        modifier = Modifier.size(86.dp),
+                                        cornerRadius = 12.dp,
+                                        fontSize = 14.sp,
+                                        iconSize = 40.dp,
+                                        borderColor = if (isDeleteMode) Color.Red else null,
+                                        onClick = {
+                                            if (dragDropState.draggingItemIndex == null) {
+                                                if (isDeleteMode) {
+                                                    vm.removeWord(index)
+                                                    deleteTargetIndex = -1
+                                                } else {
+                                                    deleteTargetIndex = index
+                                                }
+                                            }
                                         }
-                                    }
-                                )
-
-                                if (isDeleteMode) {
-                                    androidx.compose.foundation.Image(
-                                        painter = painterResource(id = R.drawable.ic_delete),
-                                        contentDescription = "삭제 대기",
-                                        modifier = Modifier.size(32.dp)
                                     )
+
+                                    if (isDeleteMode) {
+                                        androidx.compose.foundation.Image(
+                                            painter = painterResource(id = R.drawable.ic_delete),
+                                            contentDescription = "삭제 대기",
+                                            modifier = Modifier.size(32.dp)
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -181,6 +198,7 @@ fun AiSentenceScreen(
 
                     Spacer(modifier = Modifier.width(8.dp))
 
+                    // 2-2. 버튼 그룹
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         TopSquareButton(
                             text = "새로고침",
@@ -206,7 +224,6 @@ fun AiSentenceScreen(
 
             // 3. 문장 리스트
             if (state.isLoading) {
-                // 로딩 중 표시
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator(color = skyBlue)
                 }

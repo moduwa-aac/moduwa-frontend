@@ -97,11 +97,9 @@ class MainViewModel : ViewModel() {
 
         viewModelScope.launch {
             val fetchedWords = when {
-                // "전체" 탭
-                index == 0 -> repository.getWords() // 전체 조회
+                index == 0 -> repository.getWords()
 
-                // "즐겨찾기" 탭
-                index == 1 -> repository.getWords(onlyFavorite = true) // 즐겨찾기만 조회
+                index == 1 -> repository.getWords(onlyFavorite = true)
 
                 // 그 외 서버 카테고리
                 else -> {
@@ -134,5 +132,13 @@ class MainViewModel : ViewModel() {
     // 상단 카드 전체 삭제
     fun clearSelectedCards() {
         _selectedCards.value = emptyList()
+    }
+
+    fun moveCard(fromIndex: Int, toIndex: Int) {
+        val currentList = _selectedCards.value.toMutableList()
+        if (fromIndex in currentList.indices && toIndex in currentList.indices) {
+            java.util.Collections.swap(currentList, fromIndex, toIndex)
+            _selectedCards.value = currentList
+        }
     }
 }
