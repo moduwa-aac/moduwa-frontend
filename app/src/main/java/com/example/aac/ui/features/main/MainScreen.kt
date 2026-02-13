@@ -8,34 +8,34 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.LifecycleEventEffect
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.aac.R
 import com.example.aac.data.remote.dto.MainWordItem
+import com.example.aac.data.repository.SentenceDataRepository
+import com.example.aac.ui.components.DashedAddCardItem
 import com.example.aac.ui.components.WordCard
 import com.example.aac.ui.features.flashcard_edit_delete.FlashcardDetailDialog
 import com.example.aac.ui.features.main.components.*
 import kotlinx.coroutines.launch
-import com.example.aac.data.repository.SentenceDataRepository
-import androidx.lifecycle.compose.LifecycleEventEffect
-import androidx.lifecycle.Lifecycle
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun MainScreen(
     viewModel: MainViewModel = viewModel(),
     onNavigateToAiSentence: () -> Unit = {},
+    onNavigateToAddWord: () -> Unit = {},
     onNavigateToSettings: () -> Unit = {}
 ) {
     // ViewModel 상태 구독
@@ -54,20 +54,21 @@ fun MainScreen(
     // 카테고리가 바뀌면 1페이지로 초기화
     LaunchedEffect(selectedCategoryIndex) { currentPage = 0 }
 
+    // 화면 복귀 시 동기화
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
         viewModel.syncWithRepository()
     }
 
-    // 디자인 상수 정의 (간격 및 크기)
-    val commonSpacing = 17.dp       // 모든 요소 간의 간격
-    val rightColumnWidth = 92.dp    // 설정 버튼 및 우측 사이드바 너비
-    val cardCornerRadius = 12.dp    // 카드 둥글기
+    // 디자인 상수
+    val commonSpacing = 17.dp
+    val rightColumnWidth = 92.dp
+    val cardCornerRadius = 12.dp
+    val columnCount = 7 // 가로 칸 개수 고정
 
-    // 전체 화면 배경
     Box(modifier = Modifier.fillMaxSize().background(Color(0xFFF8F8F8))) {
-
         Column(modifier = Modifier.fillMaxSize()) {
 
+            // 상단바
             TopSection(
                 selectedCards = selectedCards,
                 onRemoveCard = { index -> viewModel.removeCard(index) },
@@ -81,6 +82,7 @@ fun MainScreen(
 
             Spacer(modifier = Modifier.height(commonSpacing))
 
+            // 카테고리 & 설정바
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -93,9 +95,7 @@ fun MainScreen(
                     onCategoryClick = { index -> viewModel.selectCategory(index) },
                     modifier = Modifier.weight(1f)
                 )
-
                 Spacer(modifier = Modifier.width(commonSpacing))
-
                 Surface(
                     onClick = { onNavigateToSettings() },
                     shape = RoundedCornerShape(8.dp),
@@ -119,12 +119,14 @@ fun MainScreen(
 
             Spacer(modifier = Modifier.height(commonSpacing))
 
+            // 메인 낱말 리스트 영역
             Row(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp)
             ) {
+                // 화면 높이를 측정해서 페이지당 행(Row) 개수 계산
                 BoxWithConstraints(
                     modifier = Modifier
                         .weight(1f)
@@ -132,27 +134,41 @@ fun MainScreen(
                 ) {
                     val availableHeight = maxHeight
 
-                    val controlBarWidth = 70.dp
-                    val cardAreaWidth = maxWidth - controlBarWidth
-                    val spacingTotal = commonSpacing * 6
+                    // 1. 레이아웃 계산
+                    val contentHeight = availableHeight - 32.dp
 
-                    val cardSize = (cardAreaWidth - spacingTotal) / 7
+                    val availableWidth = maxWidth - 70.dp - commonSpacing // 컨트롤바, 간격 제외
+                    val cardSize = (availableWidth - (commonSpacing * (columnCount - 1))) / columnCount
+
                     val rowHeight = cardSize + commonSpacing
 
-                    val maxRows = (availableHeight / rowHeight).toInt().coerceAtLeast(1)
+                    // 한 페이지에 들어갈 수 있는 행(Row)의 개수
+                    val maxRows = (contentHeight / rowHeight).toInt().coerceAtLeast(1)
 
-                    val dynamicPageSize = maxRows * 7
+                    // 한 페이지당 아이템 개수 (행 * 열)
+                    val pageSize = maxRows * columnCount
 
-                    val maxPage = if (wordList.isEmpty()) 0 else (wordList.size - 1) / dynamicPageSize
+                    // 2. 페이지네이션 데이터 계산
+                    val hasAddButton = selectedCategoryIndex != 0
 
+                    // 전체 아이템 개수 (버튼 포함)
+                    val totalItemCount = wordList.size + (if (hasAddButton) 1 else 0)
+
+                    // 최대 페이지 (0부터 시작)
+                    val maxPage = if (totalItemCount == 0) 0 else (totalItemCount - 1) / pageSize
+
+                    // 페이지 범위 안전장치
                     if (currentPage > maxPage) currentPage = maxPage
 
-                    val currentDisplayCards = wordList
-                        .drop(currentPage * dynamicPageSize)
-                        .take(dynamicPageSize)
-                    // -------------------------
+                    // 현재 페이지의 시작/끝 인덱스
+                    val startIndex = currentPage * pageSize
+                    val endIndex = minOf(startIndex + pageSize, totalItemCount)
+
+                    // 현재 화면에 그릴 아이템 개수
+                    val currentItemCount = if (endIndex > startIndex) endIndex - startIndex else 0
 
                     Row(modifier = Modifier.fillMaxSize()) {
+                        // 낱말 그리드 배경
                         Box(
                             modifier = Modifier
                                 .weight(1f)
@@ -160,41 +176,63 @@ fun MainScreen(
                                 .background(Color.White, RoundedCornerShape(8.dp))
                                 .padding(16.dp)
                         ) {
-                            if (wordList.isEmpty()) {
+                            if (totalItemCount == 0) {
                                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                                     Text("등록된 낱말 카드가 없습니다.", color = Color.Gray, fontSize = 20.sp)
                                 }
                             } else {
+                                // 스크롤 금지된 그리드
                                 LazyVerticalGrid(
-                                    columns = GridCells.Fixed(7),
+                                    columns = GridCells.Fixed(columnCount),
                                     horizontalArrangement = Arrangement.spacedBy(commonSpacing),
                                     verticalArrangement = Arrangement.spacedBy(commonSpacing),
                                     modifier = Modifier.fillMaxSize(),
                                     userScrollEnabled = false
                                 ) {
-                                    items(currentDisplayCards) { wordItem ->
-                                        WordCard(
-                                            text = wordItem.word,
-                                            imageUrl = wordItem.imageUrl,
-                                            partOfSpeech = wordItem.partOfSpeech,
-                                            modifier = Modifier
-                                                .aspectRatio(1f)
-                                                .combinedClickable(
-                                                    onClick = { viewModel.addCard(wordItem) }, // 클릭 시 상단바 추가
-                                                    onLongClick = { selectedDetailCard = wordItem } // 롱클릭 시 상세/수정/삭제
-                                                ),
-                                            cornerRadius = cardCornerRadius
-                                        )
+                                    items(currentItemCount) { index ->
+                                        // 현재 칸의 절대 인덱스 (전체 리스트 기준)
+                                        val absoluteIndex = startIndex + index
+
+                                        if (hasAddButton && absoluteIndex == 0) {
+                                            // 0번 칸이고 버튼이 필요한 경우 -> 추가 버튼 렌더링
+                                            DashedAddCardItem(
+                                                modifier = Modifier.aspectRatio(1f),
+                                                onClick = { onNavigateToAddWord() }
+                                            )
+                                        } else {
+                                            // 그 외 -> 낱말 카드 렌더링
+                                            val wordDataIndex = if (hasAddButton) absoluteIndex - 1 else absoluteIndex
+
+                                            // 인덱스 범위 체크 (혹시 모를 오류 방지)
+                                            if (wordDataIndex in wordList.indices) {
+                                                val wordItem = wordList[wordDataIndex]
+                                                WordCard(
+                                                    text = wordItem.word,
+                                                    imageUrl = wordItem.imageUrl,
+                                                    partOfSpeech = wordItem.partOfSpeech,
+                                                    modifier = Modifier
+                                                        .aspectRatio(1f)
+                                                        .combinedClickable(
+                                                            onClick = { viewModel.addCard(wordItem) },
+                                                            onLongClick = { selectedDetailCard = wordItem }
+                                                        ),
+                                                    cornerRadius = cardCornerRadius
+                                                )
+                                            }
+                                        }
                                     }
                                 }
                             }
                         }
 
+                        Spacer(modifier = Modifier.width(commonSpacing))
+
+                        // 페이지 이동 컨트롤러
                         CardControlBar(
-                            onUpClick = { if (currentPage > 0) currentPage-- },
-                            onDownClick = { if (currentPage < maxPage) currentPage++ },
+                            onUpClick = { if (currentPage > 0) currentPage-- }, // 이전 페이지
+                            onDownClick = { if (currentPage < maxPage) currentPage++ }, // 다음 페이지
                             modifier = Modifier
-                                .width(controlBarWidth)
+                                .width(70.dp)
                                 .fillMaxHeight()
                         )
                     }
@@ -202,6 +240,7 @@ fun MainScreen(
 
                 Spacer(modifier = Modifier.width(commonSpacing))
 
+                // 우측 반응 버튼
                 Column(
                     modifier = Modifier
                         .width(rightColumnWidth)
@@ -219,7 +258,6 @@ fun MainScreen(
                     SmallReactionButton(R.drawable.ic_suggestion, "청유", buttonModifier)
                 }
             }
-
             Spacer(modifier = Modifier.height(commonSpacing))
         }
 
@@ -233,20 +271,15 @@ fun MainScreen(
 
     if (selectedDetailCard != null) {
         FlashcardDetailDialog(
-            card = selectedDetailCard,
+            card = selectedDetailCard!!,
             onDismiss = { selectedDetailCard = null },
             onEdit = { wordItem ->
                 selectedDetailCard = null
-                coroutineScope.launch {
-                    snackbarHostState.showSnackbar("'${wordItem.word}'")
-                }
+                coroutineScope.launch { snackbarHostState.showSnackbar("'${wordItem.word}'") }
             },
             onDelete = { wordItem ->
-                val deletedText = wordItem.word
                 selectedDetailCard = null
-                coroutineScope.launch {
-                    snackbarHostState.showSnackbar("'$deletedText' 카드가 삭제되었습니다.")
-                }
+                coroutineScope.launch { snackbarHostState.showSnackbar("'${wordItem.word}' 카드가 삭제되었습니다.") }
             },
             snackbarHostState = snackbarHostState,
             coroutineScope = coroutineScope
