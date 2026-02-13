@@ -14,6 +14,7 @@ import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import com.example.aac.data.repository.SentenceDataRepository
 
 // UI 상태 관리용 클래스
 data class AiSentenceUiState(
@@ -44,9 +45,18 @@ class AiSentenceViewModel : ViewModel() {
         val currentList = _uiState.value.selectedWords.toMutableList()
         if (index in currentList.indices) {
             currentList.removeAt(index)
-            // 단어가 바뀌었으니 API 다시 호출
             _uiState.value = _uiState.value.copy(selectedWords = currentList)
+            SentenceDataRepository.selectedWords = currentList
             fetchAiSentences(currentList.map { it.word }, isRefresh = false)
+        }
+    }
+
+    fun moveWord(fromIndex: Int, toIndex: Int) {
+        val currentList = _uiState.value.selectedWords.toMutableList()
+        if (fromIndex in currentList.indices && toIndex in currentList.indices) {
+            java.util.Collections.swap(currentList, fromIndex, toIndex)
+            _uiState.value = _uiState.value.copy(selectedWords = currentList)
+            SentenceDataRepository.selectedWords = currentList
         }
     }
 
@@ -88,16 +98,6 @@ class AiSentenceViewModel : ViewModel() {
     }
 
     fun onEvent(event: AiSentenceUiEvent) {
-    }
-
-    fun moveWord(fromIndex: Int, toIndex: Int) {
-        val currentList = _uiState.value.selectedWords.toMutableList()
-        if (fromIndex in currentList.indices && toIndex in currentList.indices) {
-            java.util.Collections.swap(currentList, fromIndex, toIndex)
-            _uiState.value = _uiState.value.copy(selectedWords = currentList)
-
-            fetchAiSentences(currentList.map { it.word }, isRefresh = false)
-        }
     }
 }
 

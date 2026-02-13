@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import com.example.aac.data.repository.SentenceDataRepository
 
 class MainViewModel : ViewModel() {
 
@@ -117,7 +118,9 @@ class MainViewModel : ViewModel() {
 
     // 상단 카드 추가
     fun addCard(card: MainWordItem) {
-        _selectedCards.value = _selectedCards.value + card
+        val newList = _selectedCards.value + card
+        _selectedCards.value = newList
+        SentenceDataRepository.selectedWords = newList
     }
 
     // 상단 카드 삭제
@@ -127,11 +130,13 @@ class MainViewModel : ViewModel() {
             currentList.removeAt(index)
             _selectedCards.value = currentList
         }
+        SentenceDataRepository.selectedWords = currentList
     }
 
     // 상단 카드 전체 삭제
     fun clearSelectedCards() {
         _selectedCards.value = emptyList()
+        SentenceDataRepository.selectedWords = emptyList()
     }
 
     fun moveCard(fromIndex: Int, toIndex: Int) {
@@ -139,6 +144,13 @@ class MainViewModel : ViewModel() {
         if (fromIndex in currentList.indices && toIndex in currentList.indices) {
             java.util.Collections.swap(currentList, fromIndex, toIndex)
             _selectedCards.value = currentList
+            SentenceDataRepository.selectedWords = currentList
+        }
+    }
+
+    fun syncWithRepository() {
+        if (_selectedCards.value != SentenceDataRepository.selectedWords) {
+            _selectedCards.value = SentenceDataRepository.selectedWords
         }
     }
 }

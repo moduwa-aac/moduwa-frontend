@@ -28,7 +28,8 @@ import com.example.aac.ui.features.flashcard_edit_delete.FlashcardDetailDialog
 import com.example.aac.ui.features.main.components.*
 import kotlinx.coroutines.launch
 import com.example.aac.data.repository.SentenceDataRepository
-
+import androidx.lifecycle.compose.LifecycleEventEffect
+import androidx.lifecycle.Lifecycle
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -52,6 +53,10 @@ fun MainScreen(
 
     // 카테고리가 바뀌면 1페이지로 초기화
     LaunchedEffect(selectedCategoryIndex) { currentPage = 0 }
+
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+        viewModel.syncWithRepository()
+    }
 
     // 디자인 상수 정의 (간격 및 크기)
     val commonSpacing = 17.dp       // 모든 요소 간의 간격
