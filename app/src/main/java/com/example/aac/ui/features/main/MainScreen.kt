@@ -231,6 +231,8 @@ fun MainScreen(
                         CardControlBar(
                             onUpClick = { if (currentPage > 0) currentPage-- }, // 이전 페이지
                             onDownClick = { if (currentPage < maxPage) currentPage++ }, // 다음 페이지
+                            canScrollUp = currentPage > 0,
+                            canScrollDown = currentPage < maxPage,
                             modifier = Modifier
                                 .width(70.dp)
                                 .fillMaxHeight()
