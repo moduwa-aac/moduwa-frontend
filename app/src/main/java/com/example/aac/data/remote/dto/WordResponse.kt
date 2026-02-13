@@ -26,7 +26,6 @@ data class WordItem(
     @SerializedName("partOfSpeech") val partOfSpeech: String,
     @SerializedName("isFavorite") val isFavorite: Boolean,
 
-    // 🔥 [필수] 매퍼에서 쓰려면 이 두 줄이 꼭 있어야 합니다!
     @SerializedName("isDefault") val isDefault: Boolean?,
     @SerializedName("displayOrder") val displayOrder: Int?
 )

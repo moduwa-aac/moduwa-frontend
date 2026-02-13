@@ -3,7 +3,7 @@ package com.example.aac.data.repository
 import com.example.aac.data.remote.api.RetrofitInstance
 import com.example.aac.data.remote.dto.CategoryResponse
 import com.example.aac.data.remote.dto.MainWordItem
-
+import com.example.aac.data.remote.dto.*
 class MainRepository {
     suspend fun getCategories(): List<CategoryResponse> {
         return try {
@@ -28,14 +28,12 @@ class MainRepository {
                 MainWordItem(
                     cardId = oldWord.cardId,
 
-                    // 🔥 [해결] String? -> String 타입 불일치 해결
                     categoryId = oldWord.categoryId ?: "",
 
                     partOfSpeech = oldWord.partOfSpeech,
                     word = oldWord.word,
                     imageUrl = oldWord.imageUrl ?: "",
 
-                    // 🛡️ [안전 장치] 다른 필드들도 null일 경우를 대비해 기본값 설정
                     isDefault = oldWord.isDefault ?: false,
                     isFavorite = oldWord.isFavorite,
                     displayOrder = oldWord.displayOrder ?: 0
@@ -44,6 +42,17 @@ class MainRepository {
         } catch (e: Exception) {
             e.printStackTrace()
             emptyList()
+        }
+    }
+
+    suspend fun createWord(categoryId: String, word: String, imageUrl: String?): Boolean {
+        return try {
+            val request = CreateWordRequest(categoryId, word, imageUrl)
+            val response = RetrofitInstance.api.createWord(request)
+            response.success // 성공 여부 반환
+        } catch (e: Exception) {
+            e.printStackTrace()
+            false
         }
     }
 }

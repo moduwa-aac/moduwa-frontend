@@ -35,6 +35,8 @@ data class CategoryItem(
 fun CategoryBar(
     categories: List<CategoryItem>,
     onCategoryClick: (Int) -> Unit,
+    onPrevClick: () -> Unit,
+    onNextClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Row(
@@ -47,13 +49,13 @@ fun CategoryBar(
         NavigationBox(
             iconRes = R.drawable.btn_prev,
             description = "이전",
-            onClick = { /* 이전 로직 */ }
+            onClick = onPrevClick
         )
 
         categories.forEachIndexed { index, item ->
             CategoryTabItem(
                 item = item,
-                onClick = { onCategoryClick(index) },
+                onClick = { onCategoryClick(index) }, // 0~7 사이의 인덱스를 넘김
                 modifier = Modifier.weight(1f)
             )
 
@@ -67,11 +69,10 @@ fun CategoryBar(
                 )
             }
         }
-
         NavigationBox(
             iconRes = R.drawable.btn_next,
             description = "다음",
-            onClick = { /* 다음 로직 */ }
+            onClick = onNextClick
         )
     }
 }

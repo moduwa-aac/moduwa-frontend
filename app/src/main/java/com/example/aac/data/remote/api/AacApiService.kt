@@ -82,4 +82,9 @@ interface AacApiService {
     // [AI] 문장 추천
     @POST("api/ai/predictions")
     suspend fun getAiPredictions(@Body request: AiPredictionRequest): AiPredictionResponse
+
+    @POST("api/words")
+    suspend fun createWord(
+        @Body request: CreateWordRequest
+    ): BaseResponse<CreateWordResponseData>
 }

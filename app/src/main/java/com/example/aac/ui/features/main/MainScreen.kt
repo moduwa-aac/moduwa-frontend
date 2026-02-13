@@ -29,6 +29,7 @@ import com.example.aac.ui.components.WordCard
 import com.example.aac.ui.features.flashcard_edit_delete.FlashcardDetailDialog
 import com.example.aac.ui.features.main.components.*
 import kotlinx.coroutines.launch
+import com.example.aac.ui.features.category.components.AddWordCardDialog
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -51,12 +52,28 @@ fun MainScreen(
 
     var currentPage by remember { mutableIntStateOf(0) }
 
+    val categories by viewModel.categories.collectAsState()
+    val categoryPageIndex by viewModel.categoryPageIndex.collectAsState()
+
+    val visibleCategories = remember(categories, categoryPageIndex) {
+        categories.chunked(8).getOrNull(categoryPageIndex) ?: emptyList()
+    }
+
     // 카테고리가 바뀌면 1페이지로 초기화
     LaunchedEffect(selectedCategoryIndex) { currentPage = 0 }
 
     // 화면 복귀 시 동기화
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
         viewModel.syncWithRepository()
+    }
+
+    if (viewModel.showAddWordDialog) {
+        AddWordCardDialog(
+            onDismissRequest = { viewModel.closeAddWordDialog() },
+            onSaveClick = { word, imageUri ->
+                viewModel.createNewWord(word, imageUri)
+            }
+        )
     }
 
     // 디자인 상수
@@ -91,8 +108,17 @@ fun MainScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 CategoryBar(
-                    categories = categoryList,
-                    onCategoryClick = { index -> viewModel.selectCategory(index) },
+                    categories = visibleCategories,
+                    onCategoryClick = { localIndex ->
+                        val globalIndex = (categoryPageIndex * 8) + localIndex
+                        viewModel.selectCategory(globalIndex)
+                    },
+                    onPrevClick = {
+                        viewModel.prevCategoryPage()
+                    },
+                    onNextClick = {
+                        viewModel.nextCategoryPage()
+                    },
                     modifier = Modifier.weight(1f)
                 )
                 Spacer(modifier = Modifier.width(commonSpacing))
@@ -197,7 +223,7 @@ fun MainScreen(
                                             // 0번 칸이고 버튼이 필요한 경우 -> 추가 버튼 렌더링
                                             DashedAddCardItem(
                                                 modifier = Modifier.aspectRatio(1f),
-                                                onClick = { onNavigateToAddWord() }
+                                                onClick = { viewModel.openAddWordDialog() }
                                             )
                                         } else {
                                             // 그 외 -> 낱말 카드 렌더링
