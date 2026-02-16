@@ -2,6 +2,7 @@ package com.example.aac.data.remote.api
 
 import com.example.aac.data.remote.dto.*
 import retrofit2.http.*
+import okhttp3.ResponseBody
 
 interface AacApiService {
 
@@ -87,4 +88,23 @@ interface AacApiService {
     suspend fun createWord(
         @Body request: CreateWordRequest
     ): BaseResponse<CreateWordResponseData>
+
+    @PATCH("api/words/{cardId}")
+    suspend fun updateWord(
+        @Path("cardId") cardId: String,
+        @Body request: UpdateWordRequest
+    ): BaseResponse<UpdateWordResponseData>
+
+    @DELETE("api/words/{cardId}")
+    suspend fun deleteWord(
+        @Path("cardId") cardId: String
+    ): BaseResponse<Unit?>
+
+    // 내 목소리 설정 조회
+    @GET("api/ai/tts-setting")
+    suspend fun getTtsSetting(): BaseResponse<TtsSettingData>
+
+    // TTS 오디오 생성
+    @POST("api/ai/tts")
+    suspend fun generateTts(@Body request: TtsRequest): ResponseBody
 }

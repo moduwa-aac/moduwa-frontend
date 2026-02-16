@@ -46,7 +46,6 @@ data class CategoryOrderRequest(
 )
 
 data class CategoryOrderItem(
-    // 🔥 [중요] 서버가 id 대신 categoryId를 원함
     @SerializedName("categoryId") val id: String,
     @SerializedName("displayOrder") val displayOrder: Int
 )

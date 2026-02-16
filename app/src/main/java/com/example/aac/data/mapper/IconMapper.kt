@@ -33,8 +33,8 @@ object IconMapper {
      */
     fun toLocalResource(key: String?): Int {
         return when (key) {
-            "ICON_RECENT" -> R.drawable.ic_recent_use    // ✅ 최근사용 매핑
-            "ICON_FAVORITE" -> R.drawable.ic_favorite    // ✅ 즐겨찾기 매핑
+            "ICON_RECENT" -> R.drawable.ic_recent_use
+            "ICON_FAVORITE" -> R.drawable.ic_favorite
             "ICON_PERSON" -> R.drawable.ic_human
             "ICON_PLACE" -> R.drawable.ic_place
             "ICON_FOOD" -> R.drawable.ic_food

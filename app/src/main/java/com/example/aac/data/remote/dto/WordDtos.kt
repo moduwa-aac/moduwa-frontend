@@ -11,3 +11,13 @@ data class CreateWordRequest(
 data class CreateWordResponseData(
     @SerializedName("word") val word: MainWordItem
 )
+
+data class UpdateWordRequest(
+    @SerializedName("categoryId") val categoryId: String? = null, // 선택적 수정
+    @SerializedName("word") val word: String? = null,           // 선택적 수정
+    @SerializedName("imageUrl") val imageUrl: String? = null    // 선택적 수정
+)
+
+data class UpdateWordResponseData(
+    @SerializedName("word") val word: MainWordItem
+)

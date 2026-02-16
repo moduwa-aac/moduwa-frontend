@@ -14,24 +14,32 @@ import com.example.aac.data.repository.SentenceDataRepository
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlin.math.ceil
+import android.media.MediaPlayer
+import android.util.Log
+import java.io.File
+import java.io.FileOutputStream
+
+sealed class MainUiEvent {
+    data class ShowSnackbar(val message: String) : MainUiEvent()
+}
 
 class MainViewModel : ViewModel() {
 
     private val repository = MainRepository()
 
-    // ✅ [수정] 상수명 변경: 카테고리는 한 페이지에 8개
     private val CATEGORY_ITEMS_PER_PAGE = 8
 
-    // UI 상태: 전체 카테고리 리스트 (서버에서 받은 원본)
+    // UI 상태: 전체 카테고리 리스트
     private val _categories = MutableStateFlow<List<CategoryItem>>(emptyList())
     val categories: StateFlow<List<CategoryItem>> = _categories.asStateFlow()
 
-    // ✅ [수정] 변수명 변경: 낱말 카드 페이지와 겹치지 않게 'Category' 명시
     private val _categoryPageIndex = MutableStateFlow(0)
     val categoryPageIndex: StateFlow<Int> = _categoryPageIndex.asStateFlow()
 
-    // ✅ [수정] 변수명 변경: 카테고리 총 페이지 수
+    // 카테고리 총 페이지 수
     private val _categoryTotalPageCount = MutableStateFlow(0)
     val categoryTotalPageCount: StateFlow<Int> = _categoryTotalPageCount.asStateFlow()
 
@@ -47,51 +55,86 @@ class MainViewModel : ViewModel() {
     private val _selectedCards = MutableStateFlow<List<MainWordItem>>(emptyList())
     val selectedCards: StateFlow<List<MainWordItem>> = _selectedCards.asStateFlow()
 
+    private val _eventFlow = MutableSharedFlow<MainUiEvent>()
+    val eventFlow = _eventFlow.asSharedFlow()
+
+    private var currentVoiceKey: String = "ADULT_FEMALE_DEFAULT"
+
     init {
         fetchInitialData()
     }
 
+
+    private val _endingWords = MutableStateFlow<List<MainWordItem>>(emptyList())
+    val endingWords: StateFlow<List<MainWordItem>> = _endingWords.asStateFlow()
+
     private fun fetchInitialData() {
         viewModelScope.launch {
-            // 1. 서버에서 카테고리 목록 가져오기
-            val fetchedCategories = repository.getCategories()
+            try {
+                // 1. 0.5초 대기 (토큰 저장 타이밍 이슈 방지)
+                kotlinx.coroutines.delay(500)
 
-            // 2. 서버 데이터를 UI 모델로 변환 (필터링 포함)
-            val serverCategories = fetchedCategories
-                .filter { it.name != "어미" } // ✅ "어미" 카테고리 제외
-                .map { item ->
-                    val icon = when (item.name) {
-                        "사람" -> R.drawable.ic_human
-                        "행동" -> R.drawable.ic_act
-                        "감정" -> R.drawable.ic_emotion
-                        "음식" -> R.drawable.ic_food
-                        "장소" -> R.drawable.ic_place
-                        "신체" -> R.drawable.ic_human
-                        else -> R.drawable.ic_default
-                    }
+                // 2. 카테고리 목록 가져오기
+                val fetchedCategories = repository.getCategories()
+                Log.d("MainViewModel", "📜 서버 카테고리 목록: ${fetchedCategories.map { it.name }}")
 
-                    CategoryItem(
-                        name = item.name,
-                        iconRes = icon,
-                        isSelected = false,
-                        serverId = item.id
-                    )
+                // 4. 어미 카테고리 찾기
+                // 혹시 서버에 "어미"가 아니라 "Ending"이나 "조사"로 되어 있는지 확인 필요
+                val endingCategory = fetchedCategories.find { it.name == "어미" }
+
+                if (endingCategory != null) {
+                    Log.d("MainViewModel", "✅ '어미' 카테고리 찾음! ID: ${endingCategory.id}")
+                    val endings = repository.fetchWords(endingCategory.id)
+                    Log.d("MainViewModel", "📦 가져온 어미 단어 개수: ${endings.size}")
+                    _endingWords.value = endings
+                } else {
+                    Log.e("MainViewModel", "⚠️ '어미'라는 이름의 카테고리가 서버에 없습니다!")
+                }
+                if (fetchedCategories.isEmpty()) {
+                    android.util.Log.e("MainViewModel", "카테고리가 비어있습니다!")
+                    return@launch
                 }
 
-            // 3. 변환된 리스트 저장
-            _categories.value = serverCategories
+                // 3. 서버 데이터를 UI 모델로 변환
+                val serverCategories = fetchedCategories
+                    .filter { it.name != "어미" } // 어미는 상단 탭에서 제외
+                    .map { item ->
+                        val icon = when (item.name) {
+                            "최근사용" -> R.drawable.ic_recent_use
+                            "즐겨찾기" -> R.drawable.ic_favorite
+                            "사람" -> R.drawable.ic_human
+                            "행동" -> R.drawable.ic_act
+                            "감정" -> R.drawable.ic_emotion
+                            "음식" -> R.drawable.ic_food
+                            "장소" -> R.drawable.ic_place
+                            "신체" -> R.drawable.ic_human
+                            else -> R.drawable.ic_default
+                        }
 
-            // 4. ✅ 총 페이지 수 계산
-            calculateCategoryPages(serverCategories.size)
+                        CategoryItem(
+                            name = item.name,
+                            iconRes = icon,
+                            isSelected = false,
+                            serverId = item.id
+                        )
+                    }
 
-            // 5. 데이터가 있다면 첫 번째 카테고리 자동 선택
-            if (serverCategories.isNotEmpty()) {
-                selectCategory(0)
+                // 5. 변환된 리스트 저장 및 UI 갱신
+                _categories.value = serverCategories
+                calculateCategoryPages(serverCategories.size)
+
+                if (serverCategories.isNotEmpty()) {
+                    selectCategory(0) // 첫 번째 카테고리(최근 사용 등) 자동 선택
+                }
+            } catch (e: Exception) {
+                // 에러 발생 시 로그 출력 (앱이 멈추지 않게 함)
+                e.printStackTrace()
+                android.util.Log.e("MainViewModel", "초기 데이터 로드 실패: ${e.message}")
             }
         }
     }
 
-    // ✅ 페이지 수 계산 함수
+    // 페이지 수 계산 함수
     private fun calculateCategoryPages(totalItemCount: Int) {
         if (totalItemCount == 0) {
             _categoryTotalPageCount.value = 1
@@ -100,14 +143,14 @@ class MainViewModel : ViewModel() {
         }
     }
 
-    // ✅ 다음 카테고리 페이지로
+    // 다음 카테고리 페이지로
     fun nextCategoryPage() {
         if (_categoryPageIndex.value < _categoryTotalPageCount.value - 1) {
             _categoryPageIndex.value += 1
         }
     }
 
-    // ✅ 이전 카테고리 페이지로
+    // 이전 카테고리 페이지로
     fun prevCategoryPage() {
         if (_categoryPageIndex.value > 0) {
             _categoryPageIndex.value -= 1
@@ -139,9 +182,16 @@ class MainViewModel : ViewModel() {
         }
     }
 
-    // ... (카드 추가/삭제/이동 로직은 기존과 동일) ...
     fun addCard(card: MainWordItem) {
-        val newList = _selectedCards.value + card
+        val currentList = _selectedCards.value
+        if (currentList.size >= 20) {
+            viewModelScope.launch {
+                _eventFlow.emit(MainUiEvent.ShowSnackbar("낱말 카드는 최대 20개까지만 선택할 수 있어요."))
+            }
+            return
+        }
+
+        val newList = currentList + card
         _selectedCards.value = newList
         SentenceDataRepository.selectedWords = newList
     }
@@ -175,7 +225,6 @@ class MainViewModel : ViewModel() {
         }
     }
 
-    // ... (다이얼로그 로직) ...
     var showAddWordDialog by mutableStateOf(false)
         private set
 
@@ -192,6 +241,100 @@ class MainViewModel : ViewModel() {
                 closeAddWordDialog()
                 selectCategory(currentCatIndex)
             }
+        }
+    }
+
+    fun updateWord(originalCard: MainWordItem, newWord: String, newCategoryName: String, newImageUrl: String?) {
+        viewModelScope.launch {
+            // 1. 카테고리 이름으로 ID 찾기
+            val targetCategory = _categories.value.find { it.name == newCategoryName }
+            val categoryId = targetCategory?.serverId
+
+            // 2. 변경된 값 보냄
+            val updatedWordItem = repository.updateWord(
+                cardId = originalCard.cardId,
+                categoryId = categoryId, // 카테고리 변경 시
+                word = newWord,
+                imageUrl = newImageUrl
+            )
+
+            if (updatedWordItem != null) {
+                // 3. 성공 시: 현재 리스트 새로고침
+                selectCategory(_selectedCategoryIndex.value)
+
+                // 스낵바 알림
+                _eventFlow.emit(MainUiEvent.ShowSnackbar("'${updatedWordItem.word}' (으)로 수정되었습니다."))
+            } else {
+                _eventFlow.emit(MainUiEvent.ShowSnackbar("수정에 실패했습니다."))
+            }
+        }
+    }
+
+    fun deleteWord(cardId: String) {
+        viewModelScope.launch {
+            val isSuccess = repository.deleteWord(cardId)
+
+            if (isSuccess) {
+                // 1. UI 갱신 (현재 카테고리 다시 불러오기)
+                selectCategory(_selectedCategoryIndex.value)
+                // 2. 스낵바 알림
+                _eventFlow.emit(MainUiEvent.ShowSnackbar("카드가 삭제되었습니다."))
+            } else {
+                _eventFlow.emit(MainUiEvent.ShowSnackbar("삭제에 실패했습니다."))
+            }
+        }
+    }
+
+    // ✅ TTS 재생 함수 (MainScreen의 재생 버튼과 연결)
+    fun playSentence(context: android.content.Context) { // Context 필요!
+        // 1. 선택된 카드들을 공백으로 연결 (예: "나 밥 먹다")
+        val sentence = _selectedCards.value.joinToString(" ") { it.word }
+
+        if (sentence.isBlank()) {
+            viewModelScope.launch { _eventFlow.emit(MainUiEvent.ShowSnackbar("재생할 낱말이 없습니다.")) }
+            return
+        }
+
+        viewModelScope.launch {
+            // 2. 서버에서 오디오 데이터(byte[]) 가져오기
+            val audioBytes = repository.fetchTtsAudio(sentence, currentVoiceKey)
+
+            if (audioBytes != null) {
+                // 3. 오디오 재생 (Helper 함수 사용)
+                playAudioFromBytes(context, audioBytes)
+            } else {
+                _eventFlow.emit(MainUiEvent.ShowSnackbar("TTS 재생 실패: 데이터를 불러오지 못했습니다."))
+            }
+        }
+    }
+
+    // 🎵 바이트 배열을 재생하는 헬퍼 함수
+    private fun playAudioFromBytes(context: android.content.Context, audioData: ByteArray) {
+        try {
+            // 1. 임시 파일 생성 (cacheDir 사용)
+            val tempFile = File.createTempFile("tts_audio", ".mp3", context.cacheDir)
+            tempFile.deleteOnExit() // 앱 종료 시 삭제
+
+            // 2. 파일에 바이트 쓰기
+            val fos = FileOutputStream(tempFile)
+            fos.write(audioData)
+            fos.close()
+
+            // 3. MediaPlayer로 재생
+            val mediaPlayer = MediaPlayer()
+            mediaPlayer.setDataSource(tempFile.absolutePath)
+            mediaPlayer.prepare()
+            mediaPlayer.start()
+
+            // 재생 끝나면 리소스 해제
+            mediaPlayer.setOnCompletionListener {
+                it.release()
+                tempFile.delete() // 파일 삭제
+            }
+
+        } catch (e: Exception) {
+            e.printStackTrace()
+            viewModelScope.launch { _eventFlow.emit(MainUiEvent.ShowSnackbar("오디오 재생 중 오류가 발생했습니다.")) }
         }
     }
 }

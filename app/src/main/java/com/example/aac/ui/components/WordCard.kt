@@ -1,8 +1,6 @@
 package com.example.aac.ui.components
 
-import android.util.Log
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -32,10 +30,10 @@ import java.net.URLEncoder
 
 fun getBackgroundColorByPartOfSpeech(partOfSpeech: String): Color {
     return when (partOfSpeech) {
-        "NOUN" -> Color(0xFFFFE099)
-        "VERB" -> Color(0xFFC2ECC9)
-        "ADJECTIVE" -> Color(0xFFCCE0FF)
-        "ADVERB", "PREPOSITION", "MODIFIER" -> Color(0xFFF0C2FF)
+        "NOUN", "명사" -> Color(0xFFFFE099)
+        "VERB", "동사" -> Color(0xFFC2ECC9)
+        "ADJECTIVE", "형용사" -> Color(0xFFCCE0FF)
+        "ADVERB", "부사", "PREPOSITION", "전치사", "MODIFIER", "관형사" -> Color(0xFFF0C2FF)
         else -> Color(0xFFFBFBF8)
     }
 }
@@ -55,7 +53,7 @@ fun getSafeUrl(url: String): String {
 @Composable
 fun WordCard(
     text: String,
-    imageUrl: String,
+    imageUrl: String?,
     partOfSpeech: String,
     modifier: Modifier = Modifier,
     cornerRadius: Dp = 12.dp,
@@ -65,7 +63,13 @@ fun WordCard(
     onClick: (() -> Unit)? = null
 ) {
     val backgroundColor = getBackgroundColorByPartOfSpeech(partOfSpeech)
-    val safeImageUrl = remember(imageUrl) { getSafeUrl(imageUrl) }
+
+    val safeImageUrl = remember(imageUrl) {
+        if (!imageUrl.isNullOrBlank()) getSafeUrl(imageUrl) else ""
+    }
+    val hasImage = !safeImageUrl.isBlank()
+
+    val maxLines = if (hasImage) 2 else 5
 
     val finalModifier = if (onClick != null) {
         modifier.clickable { onClick() }
@@ -73,8 +77,8 @@ fun WordCard(
         modifier
     }
 
-    val finalColor = if (borderColor != null) {
-        BorderStroke(1.dp, borderColor)
+    val borderStroke = if (borderColor != null) {
+        BorderStroke(2.dp, borderColor)
     } else {
         null
     }
@@ -85,37 +89,45 @@ fun WordCard(
             .clip(RoundedCornerShape(cornerRadius)),
         shape = RoundedCornerShape(cornerRadius),
         colors = CardDefaults.cardColors(containerColor = backgroundColor),
-        border = finalColor
+        border = borderStroke
     ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(4.dp),
+                .padding(horizontal = 8.dp, vertical = 6.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            AsyncImage(
-                model = ImageRequest.Builder(LocalContext.current)
-                    .data(safeImageUrl)
-                    .crossfade(true)
-                    .build(),
-                contentDescription = text,
-                placeholder = painterResource(id = R.drawable.ic_launcher_foreground),
-                error = painterResource(id = R.drawable.ic_launcher_foreground),
-                contentScale = ContentScale.Fit,
-                modifier = Modifier.size(iconSize)
-            )
+            if (hasImage) {
+                AsyncImage(
+                    model = ImageRequest.Builder(LocalContext.current)
+                        .data(safeImageUrl)
+                        .crossfade(true)
+                        .build(),
+                    contentDescription = text,
+                    placeholder = painterResource(id = R.drawable.ic_launcher_foreground),
+                    error = painterResource(id = R.drawable.ic_launcher_foreground),
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier.size(iconSize)
+                )
 
-            Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(4.dp))
+            }
 
+            // 텍스트 영역
             Text(
                 text = text,
                 fontSize = fontSize,
                 fontWeight = FontWeight.Bold,
                 color = Color.Black,
                 textAlign = TextAlign.Center,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+
+                maxLines = maxLines,
+                overflow = TextOverflow.Ellipsis,
+
+                lineHeight = fontSize * 1.2f,
+
+                modifier = Modifier.fillMaxWidth()
             )
         }
     }
