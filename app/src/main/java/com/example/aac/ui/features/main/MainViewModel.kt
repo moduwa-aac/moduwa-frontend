@@ -76,45 +76,115 @@ class MainViewModel : ViewModel() {
     var showAddWordDialog by mutableStateOf(false)
         private set
 
-    init {
-        fetchInitialData()
+    fun syncWithRepository() {
+        // 1. 카테고리 및 어미 리스트 새로고침 (수정/추가 반영)
+        refreshAllData()
+
+        // 2. 선택된 카드 동기화 (기존 로직)
+        if (_selectedCards.value != SentenceDataRepository.selectedWords) {
+            _selectedCards.value = SentenceDataRepository.selectedWords
+            requestAiPrediction()
+        }
     }
 
-    // 초기 데이터 로드 (고정 카테고리 + 서버 카테고리 + 어미 분리)
-    private fun fetchInitialData() {
+    private fun refreshAllData() {
         viewModelScope.launch {
             try {
-                kotlinx.coroutines.delay(500)
-
                 val fetchedCategories = repository.getCategories()
 
-                // 1. 어미 카테고리 처리
+                // 어미 카테고리 분리
                 val endingCategory = fetchedCategories.find { it.name.trim() == "어미" }
                 endingCategoryId = endingCategory?.id
-
                 if (endingCategory != null) {
                     val endings = repository.fetchWords(endingCategory.id)
                     _endingWords.value = endings.map { it.copy(partOfSpeech = "E") }
                 }
 
-                // 2. 고정 카테고리 생성
-                val fixedCategories = listOf(
-                    CategoryItem(name = "즐겨찾기", iconRes = R.drawable.ic_favorite, isSelected = false, serverId = null)
-                )
-
-                // 3. 일반 카테고리 (어미 제외, 아이콘 매퍼 적용)
+                // 고정 및 서버 카테고리 매핑
                 val serverCategories = fetchedCategories
-                    .filter { it.name.trim() != "어미" && it.name.trim() != "전체" && it.name.trim() != "즐겨찾기" }
+                    .filter {
+                        val n = it.name.trim()
+                        n != "어미" && n != "전체" && n != "최근사용" && n != "즐겨찾기"
+                    }
                     .map { item ->
                         CategoryItem(
                             name = item.name,
                             iconRes = IconMapper.toLocalResource(item.iconKey),
                             isSelected = false,
-                            serverId = item.id
+                            serverId = item.id,
+                            iconUrl = item.iconUrl,
+                            displayOrder = item.displayOrder ?: 0
                         )
                     }
+                    .sortedBy { it.displayOrder }
 
-                // 4. 병합 및 UI 갱신
+                val fixedCategories = listOf(
+                    CategoryItem(name = "최근사용", iconRes = R.drawable.ic_recent_use, isSelected = false, serverId = null, displayOrder = -2),
+                    CategoryItem(name = "즐겨찾기", iconRes = R.drawable.ic_favorite, isSelected = false, serverId = null, displayOrder = -1)
+                )
+
+                val allCategories = fixedCategories + serverCategories
+
+                // 현재 선택된 인덱스 유지하면서 리스트만 교체
+                val currentIndex = _selectedCategoryIndex.value
+                val updatedList = allCategories.mapIndexed { i, item ->
+                    item.copy(isSelected = i == currentIndex)
+                }
+
+                _categories.value = updatedList
+                calculateCategoryPages(updatedList.size)
+
+                // 현재 카테고리의 낱말들도 다시 로드
+                selectCategory(currentIndex)
+
+            } catch (e: Exception) {
+                Log.e("MainViewModel", "데이터 갱신 실패: ${e.message}")
+            }
+        }
+    }
+
+    init {
+        refreshAllData()
+    }
+    // 초기 데이터 로드 (고정 카테고리 + 서버 카테고리 + 어미 분리)
+    private fun fetchInitialData() {
+        viewModelScope.launch {
+            try {
+                kotlinx.coroutines.delay(500)
+                val fetchedCategories = repository.getCategories()
+
+                // 1. 어미 카테고리 분리
+                val endingCategory = fetchedCategories.find { it.name.trim() == "어미" }
+                endingCategoryId = endingCategory?.id
+                if (endingCategory != null) {
+                    val endings = repository.fetchWords(endingCategory.id)
+                    _endingWords.value = endings.map { it.copy(partOfSpeech = "E") }
+                }
+
+                // 2. 서버 카테고리 정렬 (고정 카테고리들 제외하고 정렬)
+                val serverCategories = fetchedCategories
+                    .filter {
+                        val n = it.name.trim()
+                        n != "어미" && n != "전체" && n != "최근사용" && n != "즐겨찾기"
+                    }
+                    .map { item ->
+                        CategoryItem(
+                            name = item.name,
+                            iconRes = IconMapper.toLocalResource(item.iconKey),
+                            isSelected = false,
+                            serverId = item.id,
+                            iconUrl = item.iconUrl,
+                            displayOrder = item.displayOrder ?: 0
+                        )
+                    }
+                    .sortedBy { it.displayOrder }
+
+                // 3. 최근사용, 즐겨찾기 고정 (전체 삭제)
+                val fixedCategories = listOf(
+                    CategoryItem(name = "최근사용", iconRes = R.drawable.ic_recent_use, isSelected = true, serverId = null, displayOrder = -2),
+                    CategoryItem(name = "즐겨찾기", iconRes = R.drawable.ic_favorite, isSelected = false, serverId = null, displayOrder = -1)
+                )
+
                 val allCategories = fixedCategories + serverCategories
                 _categories.value = allCategories
                 calculateCategoryPages(allCategories.size)
@@ -122,7 +192,6 @@ class MainViewModel : ViewModel() {
                 if (allCategories.isNotEmpty()) {
                     selectCategory(0)
                 }
-
             } catch (e: Exception) {
                 Log.e("MainViewModel", "초기 데이터 로드 실패: ${e.message}")
             }
@@ -243,13 +312,6 @@ class MainViewModel : ViewModel() {
             java.util.Collections.swap(currentList, fromIndex, toIndex)
             _selectedCards.value = currentList
             SentenceDataRepository.selectedWords = currentList
-        }
-    }
-
-    fun syncWithRepository() {
-        if (_selectedCards.value != SentenceDataRepository.selectedWords) {
-            _selectedCards.value = SentenceDataRepository.selectedWords
-            requestAiPrediction()
         }
     }
 

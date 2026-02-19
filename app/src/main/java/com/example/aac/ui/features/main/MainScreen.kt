@@ -63,13 +63,13 @@ fun MainScreen(
 
     // 카테고리 페이지네이션 관련
     val categoryPageIndex by viewModel.categoryPageIndex.collectAsState()
-    val visibleCategories = remember(categoryList, categoryPageIndex) {
+    val visibleCategoriesWithPadding = remember(categoryList, categoryPageIndex) {
         val chunkSize = 8
-        if (categoryList.isNotEmpty()) {
-            categoryList.chunked(chunkSize).getOrNull(categoryPageIndex) ?: emptyList()
-        } else {
-            emptyList()
-        }
+        val pages = categoryList.chunked(chunkSize)
+        val currentPageItems = pages.getOrNull(categoryPageIndex) ?: emptyList()
+
+        // 부족한 개수만큼 null을 채워서 무조건 8개짜리 리스트 생성
+        currentPageItems + List(chunkSize - currentPageItems.size) { null }
     }
 
     // 카테고리가 바뀌면 1페이지로 초기화 (뷰모델 함수 호출)
@@ -146,10 +146,13 @@ fun MainScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 CategoryBar(
-                    categories = visibleCategories,
+                    categories = visibleCategoriesWithPadding,
                     onCategoryClick = { localIndex ->
                         val globalIndex = (categoryPageIndex * 8) + localIndex
-                        viewModel.selectCategory(globalIndex)
+                        // 실제 데이터가 있는 경우만 클릭 처리
+                        if (globalIndex < categoryList.size) {
+                            viewModel.selectCategory(globalIndex)
+                        }
                     },
                     onPrevClick = { viewModel.prevCategoryPage() },
                     onNextClick = { viewModel.nextCategoryPage() },

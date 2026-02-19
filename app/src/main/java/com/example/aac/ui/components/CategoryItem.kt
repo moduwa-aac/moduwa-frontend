@@ -5,5 +5,6 @@ data class CategoryItem(
     val iconRes: Int,
     val isSelected: Boolean = false,
     val serverId: String? = null,
-    val iconUrl: String? = null
+    val iconUrl: String? = null,
+    val displayOrder: Int = 0
 )
