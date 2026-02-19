@@ -10,6 +10,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.aac.R
 import com.example.aac.data.mapper.IconMapper
+import com.example.aac.data.remote.api.RetrofitInstance
 import com.example.aac.data.remote.dto.MainWordItem
 import com.example.aac.data.repository.MainRepository
 import com.example.aac.data.repository.SentenceDataRepository
@@ -245,6 +246,15 @@ class MainViewModel : ViewModel() {
                 } ?: run {
                     _words.value = emptyList()
                 }
+            }
+            try {
+                val ttsRes = RetrofitInstance.api.getTtsSetting() // Repository에 이 함수가 있어야 합니다. (없다면 RetrofitInstance.api.getTtsSetting() 직접 호출)
+                if (ttsRes.success && ttsRes.data != null) {
+                    currentVoiceKey = ttsRes.data.voiceKey
+                    Log.d("MainViewModel", "✅ TTS 설정 로드: $currentVoiceKey")
+                }
+            } catch (e: Exception) {
+                Log.e("MainViewModel", "TTS 설정 가져오기 실패", e)
             }
             _wordPageIndex.value = 0
         }

@@ -13,3 +13,11 @@ data class TtsRequest(
     @SerializedName("text") val text: String,
     @SerializedName("voiceKey") val voiceKey: String
 )
+
+data class TtsPreviewRequest(
+    @SerializedName("voiceKey") val voiceKey: String
+)
+
+data class TtsSettingUpdateRequest(
+    @SerializedName("voiceKey") val voiceKey: String
+)

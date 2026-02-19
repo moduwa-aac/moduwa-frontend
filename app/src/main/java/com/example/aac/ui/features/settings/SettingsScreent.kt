@@ -65,7 +65,7 @@ fun SettingsScreen(
                 SettingsListItem(
                     iconRes = R.drawable.ic_aac_speak,
                     title = "말하기 화면 설정",
-                    rightText = "6월",
+                    rightText = "7열",
                     onClick = onSpeakSettingClick
                 )
 
