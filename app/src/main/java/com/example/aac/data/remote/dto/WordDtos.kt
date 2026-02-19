@@ -76,3 +76,8 @@ data class WordDto(
 )
 
 data class FavoriteResult(val cardId: String, val isFavorite: Boolean)
+
+data class AiFavoriteRequest(
+    @SerializedName("sentence") val sentence: String,
+    @SerializedName("sentenceSource") val sentenceSource: String = "AI_SUGGESTED"
+)

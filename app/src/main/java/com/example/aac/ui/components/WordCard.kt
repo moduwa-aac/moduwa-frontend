@@ -66,7 +66,7 @@ fun WordCard(
 
     val safeImageUrl = remember(imageUrl) {
         // 🔎 [확인 필수] 로그캣에 'WordCard'라고 검색해서 서버가 대체 무슨 주소를 주는지 확인하세요!
-        android.util.Log.d("WordCard", "서버가 던져준 이미지 주소: $imageUrl")
+//        android.util.Log.d("WordCard", "서버가 던져준 이미지 주소: $imageUrl")
 
         if (
             imageUrl.isNullOrBlank() ||

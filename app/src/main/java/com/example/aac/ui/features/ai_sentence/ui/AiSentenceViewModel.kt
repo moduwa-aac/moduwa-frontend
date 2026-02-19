@@ -1,8 +1,10 @@
 package com.example.aac.ui.features.ai_sentence.ui
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.aac.data.remote.api.RetrofitInstance
+import com.example.aac.data.remote.dto.AiFavoriteRequest
 import com.example.aac.data.remote.dto.AiPredictionRequest
 import com.example.aac.data.remote.dto.AiStyleRequest
 import com.example.aac.data.remote.dto.MainWordItem
@@ -31,10 +33,10 @@ class AiSentenceViewModel : ViewModel() {
     val uiState: StateFlow<AiSentenceUiState> = _uiState.asStateFlow()
 
     // 1. 초기 데이터 세팅
-    fun setInitialWords(words: List<MainWordItem>) {
+    fun setInitialWords(words: List<MainWordItem>, tone: String) {
         _uiState.value = _uiState.value.copy(selectedWords = words)
-        // MainWordItem 리스트 전체를 넘겨서 처리
-        fetchAiSentences(words, isRefresh = false)
+        // 넘겨받은 tone으로 첫 API 호출
+        fetchAiSentences(words, isRefresh = false, tone = tone)
     }
 
     // 2. 단어 삭제
@@ -44,8 +46,6 @@ class AiSentenceViewModel : ViewModel() {
             currentList.removeAt(index)
             _uiState.value = _uiState.value.copy(selectedWords = currentList)
             SentenceDataRepository.selectedWords = currentList
-
-            // 변경된 리스트로 재요청
             fetchAiSentences(currentList, isRefresh = false)
         }
     }
@@ -59,8 +59,7 @@ class AiSentenceViewModel : ViewModel() {
         }
     }
 
-    // 3. API 호출 (어미/일반 분기 처리 적용)
-    // 인자를 List<MainWordItem>으로 받도록 변경 (품사 확인을 위해)
+    // 3. API 호출
     fun fetchAiSentences(wordItems: List<MainWordItem>, isRefresh: Boolean, tone: String = "HONORIFIC") {
         if (wordItems.isEmpty()) {
             _uiState.value = _uiState.value.copy(sentences = emptyList())
@@ -71,7 +70,6 @@ class AiSentenceViewModel : ViewModel() {
             _uiState.value = _uiState.value.copy(isLoading = true)
 
             try {
-                // 🅰️ 낱말 vs 어미 분리
                 val endingCards = wordItems.filter {
                     it.partOfSpeech == "E" || it.partOfSpeech == "ENDING" || it.categoryName == "어미"
                 }.map { it.word }
@@ -84,7 +82,6 @@ class AiSentenceViewModel : ViewModel() {
                 val resultSentences: List<String>
 
                 if (endingCards.isNotEmpty()) {
-                    // ✅ 어미가 있음 -> Styles API 호출
                     val request = AiStyleRequest(
                         words = contentWords,
                         endingCards = endingCards,
@@ -92,26 +89,21 @@ class AiSentenceViewModel : ViewModel() {
                         refresh = isRefresh
                     )
                     val response = api.getAiStyles(request)
-                    // Styles API는 "sentences" 필드로 줌
                     resultSentences = if (response.success && response.data != null) {
                         response.data.sentences
                     } else emptyList()
-
                 } else {
-                    // ✅ 어미가 없음 -> Predictions API 호출
                     val request = AiPredictionRequest(
                         words = contentWords,
                         tone = tone,
                         refresh = isRefresh
                     )
                     val response = api.getAiPredictions(request)
-                    // Predictions API는 "predictions" 필드로 주지만 DTO에서 sentences로 매핑해둠
                     resultSentences = if (response.success && response.data != null) {
                         response.data.sentences
                     } else emptyList()
                 }
 
-                // UI 업데이트
                 val sentenceItems = resultSentences.mapIndexed { index, text ->
                     SentenceItem(id = index, text = text)
                 }
@@ -119,7 +111,6 @@ class AiSentenceViewModel : ViewModel() {
 
             } catch (e: Exception) {
                 e.printStackTrace()
-                // 에러 시 빈 리스트
                 _uiState.value = _uiState.value.copy(sentences = emptyList())
             } finally {
                 _uiState.value = _uiState.value.copy(isLoading = false)
@@ -127,13 +118,56 @@ class AiSentenceViewModel : ViewModel() {
         }
     }
 
-    fun onEvent(event: AiSentenceUiEvent) {
-        // 필요 시 구현
+    // ✅ 즐겨찾기 API 연결
+    fun toggleFavorite(sentenceId: Int, text: String, onResult: (String) -> Unit) {
+        viewModelScope.launch {
+            try {
+                val request = AiFavoriteRequest(sentence = text)
+                val response = RetrofitInstance.api.addSentenceFavorite(request)
+
+                if (response.success) {
+                    val updatedSentences = _uiState.value.sentences.map {
+                        if (it.id == sentenceId) it.copy(isFavorite = true) else it
+                    }
+                    _uiState.value = _uiState.value.copy(sentences = updatedSentences)
+                    onResult("즐겨찾기에 추가되었습니다.")
+                } else {
+                    onResult("즐겨찾기 실패: ${response.message}")
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                onResult("네트워크 오류가 발생했습니다.")
+            }
+        }
+    }
+
+    // ✅ 재생 기능 (메인 화면에서 쓰던 TTS 코드를 여기에 복붙해서 연결하시면 됩니다)
+    fun playSentence(context: Context, text: String) {
+        if (text.isBlank()) return
+        // TODO: MainViewModel에서 쓰던 repository.fetchTtsAudio() 등을 사용해서 재생!
+    }
+
+    // ✅ 이벤트 핸들러
+    fun onEvent(event: AiSentenceUiEvent, context: Context, showSnackbar: (String) -> Unit) {
+        when (event) {
+            is AiSentenceUiEvent.ClickPlayTop -> {
+                val combinedText = _uiState.value.selectedWords.joinToString(" ") { it.word }
+                playSentence(context, combinedText)
+            }
+            is AiSentenceUiEvent.ClickPlaySentence -> {
+                playSentence(context, event.text)
+            }
+            is AiSentenceUiEvent.ClickFavorite -> {
+                toggleFavorite(event.id, event.text) { message ->
+                    showSnackbar(message)
+                }
+            }
+        }
     }
 }
 
 sealed class AiSentenceUiEvent {
     object ClickPlayTop : AiSentenceUiEvent()
-    data class ClickFavorite(val id: Int) : AiSentenceUiEvent()
-    data class ClickPlaySentence(val id: Int) : AiSentenceUiEvent()
+    data class ClickFavorite(val id: Int, val text: String) : AiSentenceUiEvent()
+    data class ClickPlaySentence(val id: Int, val text: String) : AiSentenceUiEvent()
 }

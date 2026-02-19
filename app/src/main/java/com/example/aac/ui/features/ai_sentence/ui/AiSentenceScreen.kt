@@ -2,6 +2,7 @@ package com.example.aac.ui.features.ai_sentence.ui
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -11,6 +12,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -35,16 +38,12 @@ fun AiSentenceScreen(
     vm: AiSentenceViewModel = viewModel()
 ) {
     val state by vm.uiState.collectAsState()
+    val context = LocalContext.current // ✅ 재생 기능 등을 위한 컨텍스트
 
     val dragDropState = rememberDragDropState(onMove = { from, to ->
         vm.moveWord(from, to)
     })
 
-    LaunchedEffect(Unit) {
-        if (state.selectedWords.isEmpty() && initialWords.isNotEmpty()) {
-            vm.setInitialWords(initialWords)
-        }
-    }
 
     var deleteTargetIndex by remember { mutableIntStateOf(-1) }
 
@@ -55,6 +54,14 @@ fun AiSentenceScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     var isBanmalMode by remember { mutableStateOf(true) }
+
+    LaunchedEffect(Unit) {
+        if (state.selectedWords.isEmpty() && initialWords.isNotEmpty()) {
+            // ✅ 현재 스위치 상태에 맞춰서 초기 톤 설정
+            val initialTone = if (isBanmalMode) "INFORMAL" else "HONORIFIC"
+            vm.setInitialWords(initialWords, initialTone)
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -92,7 +99,11 @@ fun AiSentenceScreen(
             modifier = Modifier
                 .padding(innerPadding)
                 .fillMaxSize()
-                .padding(12.dp),
+                .padding(12.dp)
+                // ✅ 허공 클릭 시 X 삭제 모드 해제
+                .pointerInput(Unit) {
+                    detectTapGestures(onTap = { deleteTargetIndex = -1 })
+                },
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             // 1. 상단 라벨 및 스위치
@@ -120,10 +131,15 @@ fun AiSentenceScreen(
                         onCheckedChange = { isChecked ->
                             isBanmalMode = isChecked
                             scope.launch {
+
                                 snackbarHostState.currentSnackbarData?.dismiss()
                                 val msg = if (isChecked) "반말 모드로 변경했어요." else "존댓말 모드로 변경했어요."
                                 snackbarHostState.showSnackbar(msg, duration = SnackbarDuration.Short)
                             }
+
+                            // 스위치 변경 시 데이터 새로고침
+                            val tone = if (isChecked) "INFORMAL" else "HONORIFIC"
+                            vm.fetchAiSentences(state.selectedWords, isRefresh = true, tone = tone)
                         },
                         colors = SwitchDefaults.colors(
                             checkedThumbColor = Color.White,
@@ -207,7 +223,8 @@ fun AiSentenceScreen(
                             scope.launch {
                                 snackbarHostState.showSnackbar("새로고침 중...", duration = SnackbarDuration.Short)
                             }
-                            vm.fetchAiSentences(state.selectedWords, isRefresh = true)
+                            val tone = if (isBanmalMode) "INFORMAL" else "HONORIFIC"
+                            vm.fetchAiSentences(state.selectedWords, isRefresh = true, tone = tone)
                         }
 
                         TopSquareButton(
@@ -215,7 +232,8 @@ fun AiSentenceScreen(
                             iconRes = R.drawable.ic_play,
                             backgroundColor = skyBlue
                         ) {
-                            vm.onEvent(AiSentenceUiEvent.ClickPlayTop)
+                            // ✅ 상단 재생 연결
+                            vm.onEvent(AiSentenceUiEvent.ClickPlayTop, context) { }
                         }
                     }
                 }
@@ -236,8 +254,16 @@ fun AiSentenceScreen(
                             text = item.text,
                             isFavorite = item.isFavorite,
                             onEdit = { onEditNavigate(item.text) },
-                            onFavorite = { vm.onEvent(AiSentenceUiEvent.ClickFavorite(item.id)) },
-                            onPlay = { vm.onEvent(AiSentenceUiEvent.ClickPlaySentence(item.id)) }
+                            // ✅ 즐겨찾기 클릭 연결
+                            onFavorite = {
+                                vm.onEvent(AiSentenceUiEvent.ClickFavorite(item.id, item.text), context) { msg ->
+                                    scope.launch { snackbarHostState.showSnackbar(msg) }
+                                }
+                            },
+                            // ✅ 특정 문장 재생 클릭 연결
+                            onPlay = {
+                                vm.onEvent(AiSentenceUiEvent.ClickPlaySentence(item.id, item.text), context) {}
+                            }
                         )
                     }
                 }

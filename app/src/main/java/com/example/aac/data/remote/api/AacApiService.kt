@@ -131,4 +131,9 @@ interface AacApiService {
         @Path("id") id: String,
         @Body request: FavoriteRequest // { "isFavorite": true }
     ): BaseResponse<WordDto>
+
+    @POST("api/ai/favorites")
+    suspend fun addSentenceFavorite(
+        @Body request: AiFavoriteRequest
+    ): BaseResponse<Any>
 }
