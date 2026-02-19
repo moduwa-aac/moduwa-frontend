@@ -136,4 +136,22 @@ interface AacApiService {
     suspend fun addSentenceFavorite(
         @Body request: AiFavoriteRequest
     ): BaseResponse<Any>
+
+    // ✅ AI 문장 즐겨찾기 목록 조회 (GET)
+    @GET("api/ai/favorites")
+    suspend fun getSentenceFavorites(
+        @Query("limit") limit: Int? = null,
+        @Query("offset") offset: Int? = null
+    ): BaseResponse<AiFavoriteResponseData>
+
+    @DELETE("api/ai/favorites/{favoriteId}")
+    suspend fun deleteSentenceFavorite(
+        @Path("favoriteId") favoriteId: String
+    ): BaseResponse<Any>
+
+//    @PATCH("api/ai/conversations/{conversationId}")
+//    suspend fun editAiSentence(
+//        @Path("conversationId") conversationId: String,
+//        @Body request: AiSentenceEditRequest
+//    ): BaseResponse<Any>
 }

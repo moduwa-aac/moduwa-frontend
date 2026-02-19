@@ -1,5 +1,6 @@
 package com.example.aac.ui.features.ai_sentence.ui
 
+import com.example.aac.ui.features.ai_sentence.ui.AiSentenceViewModel.AiSentenceUiEvent
 import androidx.activity.compose.BackHandler
 import androidx.annotation.DrawableRes
 import androidx.compose.foundation.BorderStroke
@@ -18,6 +19,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
@@ -26,6 +28,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.aac.R
 import com.example.aac.ui.components.CustomTopBar
 import kotlinx.coroutines.launch
@@ -36,9 +39,8 @@ fun AiSentenceEditScreen(
     initialText: String,
     initialIsFavorite: Boolean = false,
     onBack: () -> Unit,
-    onTextChanged: (String) -> Unit = {},
-    onFavoriteChanged: (Boolean) -> Unit = {},
-    onPlay: (String) -> Unit = {}
+    // 🟢 뷰모델을 화면 안으로 주입하여 직접 API를 호출하도록 설정
+    vm: AiSentenceViewModel = viewModel()
 ) {
     val originalText = remember(initialText) { initialText }
 
@@ -48,6 +50,9 @@ fun AiSentenceEditScreen(
     val focusRequester = remember { FocusRequester() }
     val keyboardController = LocalSoftwareKeyboardController.current
     val focusManager = LocalFocusManager.current
+
+    // 🟢 TTS 재생과 뷰모델 이벤트를 위해 Context 추가
+    val context = LocalContext.current
 
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -132,7 +137,6 @@ fun AiSentenceEditScreen(
                             value = text,
                             onValueChange = {
                                 text = it
-                                onTextChanged(it)
                             },
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -167,7 +171,6 @@ fun AiSentenceEditScreen(
                             contentColor = Color.White
                         ) {
                             text = originalText
-                            onTextChanged(text)
                             scope.launch {
                                 snackbarHostState.currentSnackbarData?.dismiss()
                                 snackbarHostState.showSnackbar("문장을 되돌렸어요.", duration = SnackbarDuration.Short)
@@ -182,12 +185,16 @@ fun AiSentenceEditScreen(
                             backgroundColor = Color(0xFFFFD54F),
                             contentColor = Color.White
                         ) {
-                            isFavorite = !isFavorite
-                            onFavoriteChanged(isFavorite)
-                            scope.launch {
-                                snackbarHostState.currentSnackbarData?.dismiss()
-                                val msg = if (isFavorite) "즐겨찾기에 추가했어요." else "즐겨찾기를 해제했어요."
-                                snackbarHostState.showSnackbar(msg, duration = SnackbarDuration.Short)
+                            // 🟢 1. 수정한 텍스트를 바로 즐겨찾기 API로 전송
+                            vm.onEvent(AiSentenceUiEvent.ClickFavorite(id = 0, text = text), context) { msg ->
+                                scope.launch {
+                                    snackbarHostState.currentSnackbarData?.dismiss()
+                                    snackbarHostState.showSnackbar(msg, duration = SnackbarDuration.Short)
+                                    // 서버 응답이 성공적이면 별 모양 켜기
+                                    if (msg.contains("추가되었습니다")) {
+                                        isFavorite = true
+                                    }
+                                }
                             }
                         }
 
@@ -199,10 +206,15 @@ fun AiSentenceEditScreen(
                             backgroundColor = Color(0xFF66B2FF),
                             contentColor = Color.White
                         ) {
-                            onPlay(text)
-                            scope.launch {
-                                snackbarHostState.currentSnackbarData?.dismiss()
-                                snackbarHostState.showSnackbar("문장을 재생했어요.", duration = SnackbarDuration.Short)
+                            // 🟢 2. 수정한 텍스트를 바로 TTS API로 전송하여 재생
+                            vm.onEvent(AiSentenceUiEvent.ClickPlaySentence(id = 0, text = text), context) { msg ->
+                                scope.launch {
+                                    snackbarHostState.currentSnackbarData?.dismiss()
+                                    // 에러가 났을 때만 스낵바를 띄우도록 처리
+                                    if (msg.isNotEmpty()) {
+                                        snackbarHostState.showSnackbar(msg, duration = SnackbarDuration.Short)
+                                    }
+                                }
                             }
                         }
                     }

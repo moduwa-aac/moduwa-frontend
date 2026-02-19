@@ -285,7 +285,10 @@ fun MainScreen(
                                                         .combinedClickable(
                                                             onClick = { viewModel.addCard(wordItem) },
                                                             // ✅ 롱클릭 막음 (빈 함수) -> 모달 안 뜸
-                                                            onLongClick = {}
+                                                            onLongClick = {
+                                                                if (currentCategoryName != "최근사용")
+                                                                    selectedDetailCard = wordItem
+                                                            }
                                                         ),
                                                     cornerRadius = cardCornerRadius
                                                 )

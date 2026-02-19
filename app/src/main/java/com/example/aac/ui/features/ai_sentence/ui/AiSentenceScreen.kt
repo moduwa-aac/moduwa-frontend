@@ -1,5 +1,6 @@
 package com.example.aac.ui.features.ai_sentence.ui
 
+import com.example.aac.ui.features.ai_sentence.ui.AiSentenceViewModel.AiSentenceUiEvent
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures

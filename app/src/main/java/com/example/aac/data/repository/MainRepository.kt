@@ -167,6 +167,7 @@ class MainRepository {
     suspend fun fetchTtsAudio(text: String, voiceKey: String): ByteArray? {
         return try {
             val request = TtsRequest(text, voiceKey)
+
             val responseBody = RetrofitInstance.api.generateTts(request)
             responseBody.bytes() // 스트림을 바이트 배열로 변환
         } catch (e: Exception) {
@@ -231,4 +232,40 @@ class MainRepository {
             null
         }
     }
+    suspend fun getAiSentenceFavorites(): List<MainWordItem> {
+        return try {
+            val response = RetrofitInstance.api.getSentenceFavorites()
+            if (response.success && response.data != null) {
+                // 서버에서 받은 AI 즐겨찾기 목록을 MainWordItem으로 둔갑(?)시킵니다.
+                response.data.favorites.map { favItem ->
+                    MainWordItem(
+                        cardId = favItem.id, // 삭제/수정을 위해 id 보관
+                        word = favItem.sentence, // 문장을 낱말 이름 자리에 넣음
+                        imageUrl = "", // AI 문장은 기본적으로 사진 없음
+                        partOfSpeech = "AI_SENTENCE", // 🟢 일반 낱말과 구분하기 위한 꼼수 태그!
+                        categoryId = "FAVORITE_SENTENCE_DUMMY",
+                        isFavorite = true,
+                        isDefault = false,
+                        displayOrder = 0
+                    )
+                }
+            } else {
+                emptyList()
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            emptyList()
+        }
+    }
+
+    suspend fun deleteAiSentenceFavorite(favoriteId: String): Boolean {
+        return try {
+            val response = RetrofitInstance.api.deleteSentenceFavorite(favoriteId)
+            response.success
+        } catch (e: Exception) {
+            e.printStackTrace()
+            false
+        }
+    }
+
 }

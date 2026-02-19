@@ -81,3 +81,17 @@ data class AiFavoriteRequest(
     @SerializedName("sentence") val sentence: String,
     @SerializedName("sentenceSource") val sentenceSource: String = "AI_SUGGESTED"
 )
+
+// ✅ AI 문장 즐겨찾기 조회 응답 (GET) - 나중에 메인화면에서 쓸 용도
+data class AiFavoriteItem(
+    @SerializedName("id") val id: String,
+    @SerializedName("sentence") val sentence: String,
+    @SerializedName("sentenceSource") val sentenceSource: String,
+    @SerializedName("createdAt") val createdAt: String
+)
+
+data class AiFavoriteResponseData(
+    @SerializedName("favorites") val favorites: List<AiFavoriteItem>,
+    @SerializedName("total") val total: Int
+)
+

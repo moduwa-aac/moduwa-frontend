@@ -197,11 +197,17 @@ class MainViewModel : ViewModel() {
             // "즐겨찾기"라는 이름이거나 "즐겨찾기" 아이콘을 쓰는 경우
             if (selectedItem.name.replace(" ", "") == "즐겨찾기") {
 
-                // 1. 서버에 즐겨찾기(onlyFavorite=true) 요청
+                // 1. 기존: 낱말 즐겨찾기 가져오기
                 val favWords = repository.getWords(categoryId = null, onlyFavorite = true)
+                val filteredFavWords = favWords.filter { it.isFavorite }.distinctBy { it.word }
 
-                // 🔥 [수정] 서버 믿지 말고 앱에서 한 번 더 필터링 (확실한 처리)
-                _words.value = favWords.filter { it.isFavorite }.distinctBy { it.word }
+                // 🟢 2. 추가: AI 문장 즐겨찾기 가져오기
+                val aiSentences = repository.getAiSentenceFavorites()
+
+                // 🟢 3. 병합: 낱말 목록 뒤에 문장 목록을 붙임
+                val combinedList = filteredFavWords + aiSentences
+
+                _words.value = combinedList
 
             } else {
                 // 일반 카테고리
@@ -383,53 +389,71 @@ class MainViewModel : ViewModel() {
         }
     }
 
-    // 낱말 삭제 (모달에서 호출)
-    fun deleteWord(card: MainWordItem) {
-        viewModelScope.launch {
-            val isSuccess = repository.deleteWord(card.cardId)
-
-            if (isSuccess) {
-                // UI 갱신 (현재 카테고리 및 어미 목록)
-                selectCategory(_selectedCategoryIndex.value)
-
-                // 어미 목록도 갱신이 필요할 수 있으므로
-                if (card.partOfSpeech == "E" || card.partOfSpeech == "ENDING" || card.categoryId == endingCategoryId) {
-                    endingCategoryId?.let { id ->
-                        _endingWords.value = repository.fetchWords(id).map { it.copy(partOfSpeech = "E") }
-                    }
-                }
-
-                _eventFlow.emit(MainUiEvent.ShowSnackbar("삭제 완료"))
-            } else {
-                _eventFlow.emit(MainUiEvent.ShowSnackbar("삭제 실패"))
-            }
-        }
-    }
-
-    // 4. 즐겨찾기 토글 (모달에서 호출)
+    // ✅ 즐겨찾기 토글 함수
     fun toggleFavorite(card: MainWordItem) {
         viewModelScope.launch {
-            val newStatus = !card.isFavorite
-            // ✅ Repository가 FavoriteResult를 반환함
-            val result = repository.toggleFavorite(card.cardId, newStatus)
+            // 🟢 1. AI 문장인 경우 (우리가 달아둔 꼼수 태그로 확인)
+            if (card.partOfSpeech == "AI_SENTENCE") {
+                val success = repository.deleteAiSentenceFavorite(card.cardId)
+                if (success) {
+                    // 삭제 성공 시 리스트 다시 불러오기 (화면 갱신)
+                    selectCategory(_selectedCategoryIndex.value)
+                    _eventFlow.emit(MainUiEvent.ShowSnackbar("즐겨찾기에서 제거되었습니다."))
+                } else {
+                    _eventFlow.emit(MainUiEvent.ShowSnackbar("AI 문장 즐겨찾기 해제 실패"))
+                }
+                return@launch // 아래 낱말 로직은 실행하지 않고 종료
+            }
+
+            // 🔴 2. 기존 일반 낱말인 경우
+            val newFavStatus = !card.isFavorite
+            val result = repository.toggleFavorite(card.cardId, newFavStatus)
 
             if (result != null) {
-                val msg = if (result.isFavorite) "즐겨찾기 추가됨" else "즐겨찾기 해제됨"
-                _eventFlow.emit(MainUiEvent.ShowSnackbar(msg))
+                // UI 즉각 갱신 로직
+                val updatedList = _words.value.map {
+                    if (it.cardId == card.cardId) it.copy(isFavorite = result.isFavorite) else it
+                }
+                _words.value = updatedList
 
-                // 리스트 갱신 (ID와 상태만 있으면 됨)
-                updateCardInList(result.cardId, result.cardId, result.isFavorite) // ID 변경 없으면 그대로 사용
-
-                // 즐겨찾기 탭이면 새로고침
-                val currentName = _categories.value.getOrNull(_selectedCategoryIndex.value)?.name
-                if (currentName == "즐겨찾기") {
+                // 즐겨찾기 탭이었다면 목록 재정렬
+                val currentCategoryName = _categories.value.getOrNull(_selectedCategoryIndex.value)?.name?.replace(" ", "") ?: ""
+                if (currentCategoryName == "즐겨찾기") {
                     selectCategory(_selectedCategoryIndex.value)
                 }
+
+                val msg = if (result.isFavorite) "즐겨찾기에 추가되었습니다." else "즐겨찾기에서 해제되었습니다."
+                _eventFlow.emit(MainUiEvent.ShowSnackbar(msg))
             } else {
                 _eventFlow.emit(MainUiEvent.ShowSnackbar("즐겨찾기 변경 실패"))
             }
         }
     }
+
+    // ✅ 삭제 함수
+    fun deleteWord(wordItem: MainWordItem) {
+        viewModelScope.launch {
+            // 🟢 1. AI 문장인 경우 (즐겨찾기 해제와 동일하게 처리)
+            if (wordItem.partOfSpeech == "AI_SENTENCE") {
+                val success = repository.deleteAiSentenceFavorite(wordItem.cardId)
+                if (success) {
+                    selectCategory(_selectedCategoryIndex.value)
+                    _eventFlow.emit(MainUiEvent.ShowSnackbar("AI 문장 즐겨찾기가 삭제되었습니다."))
+                }
+                return@launch
+            }
+
+            // 🔴 2. 기존 일반 낱말인 경우
+            val success = repository.deleteWord(wordItem.cardId)
+            if (success) {
+                selectCategory(_selectedCategoryIndex.value)
+                _eventFlow.emit(MainUiEvent.ShowSnackbar("낱말이 삭제되었습니다."))
+            } else {
+                _eventFlow.emit(MainUiEvent.ShowSnackbar("낱말 삭제 실패"))
+            }
+        }
+    }
+
 
     // 내부 리스트 상태 동기화 헬퍼
     private fun updateCardInList(oldId: String, newId: String, isFavorite: Boolean) {
