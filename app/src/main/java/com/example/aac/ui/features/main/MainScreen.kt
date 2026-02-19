@@ -1,5 +1,6 @@
 package com.example.aac.ui.features.main
 
+import android.R.attr.category
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
@@ -436,7 +437,7 @@ fun MainScreen(
                 com.example.aac.domain.model.Category(
                     id = it.serverId ?: "",
                     name = it.name,
-                    iconKey = "", // 아이콘 키 (필요시 추가 매핑)
+                    iconKey = it.iconKey ?: "",
                     iconUrl = it.iconUrl, // 🟢 [해결] 이 부분이 누락되면 에러가 납니다
                     displayOrder = 0,
                     wordCount = 0
@@ -451,8 +452,13 @@ fun MainScreen(
                 selectedDetailCard = null
             },
             onSave = { newWord, newCategoryId, newUri, newBitmap ->
-                // Uri를 String으로 변환하여 뷰모델에 전달
-                viewModel.updateWord(selectedDetailCard!!, newWord, newCategoryId, newUri?.toString())
+                // 🟢 뷰모델의 파라미터 순서와 맞춰서 호출
+                viewModel.updateWord(
+                    originalCard = selectedDetailCard!!,
+                    newWord = newWord,
+                    newCategoryId = newCategoryId, // 👈 여기서 ID를 바로 넘깁니다.
+                    newImageUrl = newUri?.toString()
+                )
                 showEditDialog = false
                 selectedDetailCard = null
             }

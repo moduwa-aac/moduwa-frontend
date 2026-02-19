@@ -113,6 +113,7 @@ class MainViewModel : ViewModel() {
                             iconRes = IconMapper.toLocalResource(item.iconKey),
                             isSelected = false,
                             serverId = item.id,
+                            iconKey = item.iconKey,
                             iconUrl = item.iconUrl,
                             displayOrder = item.displayOrder ?: 0
                         )
@@ -356,30 +357,66 @@ class MainViewModel : ViewModel() {
                 if (isFavoritesTab) repository.toggleFavorite(newId, true)
                 closeAddWordDialog()
                 _eventFlow.emit(MainUiEvent.ShowSnackbar("낱말이 추가되었습니다."))
+
+                // 1. 먼저 카테고리를 다시 선택해서 데이터를 불러옵니다 (await/join 효과를 위해 여기서 직접 처리)
                 selectCategory(_selectedCategoryIndex.value)
-                _wordPageIndex.value = Int.MAX_VALUE
+
+                // 2. 🟢 핵심: 데이터가 업데이트된 후(약간의 딜레이나 StateFlow 반영 시간 필요)
+                // 현재 전체 단어 개수를 기준으로 마지막 페이지를 계산해서 이동합니다.
+                // 단어 개수가 업데이트될 때까지 아주 짧게 기다리거나,
+                // 아예 selectCategory 내부의 로직이 끝난 후 실행되도록 보장해야 합니다.
+
+                kotlinx.coroutines.delay(100) // 리스트 반영을 위한 최소한의 시간
+                val totalWords = _words.value.size
+                if (totalWords > 0) {
+                    // 한 페이지당 아이템 개수(예: 8개)로 나누어 마지막 페이지 인덱스 계산
+                    val lastPage = (totalWords - 1) / 8
+                    _wordPageIndex.value = lastPage
+                }
+
             } else {
                 _eventFlow.emit(MainUiEvent.ShowSnackbar("추가 실패: 서버 오류"))
             }
         }
     }
 
-    fun updateWord(originalCard: MainWordItem, newWord: String, newCategoryName: String, newImageUrl: String?) {
+    fun updateWord(
+        originalCard: MainWordItem,
+        newWord: String,
+        newCategoryId: String?, // 🟢 이름 대신 ID를 직접 받도록 변경
+        newImageUrl: String?
+    ) {
         viewModelScope.launch {
-            val targetCategory = _categories.value.find { it.name == newCategoryName }
-            val categoryId = targetCategory?.serverId
+            // 1. 카테고리 ID 결정 (새로운 게 없으면 기존 것 유지)
+            val categoryId = newCategoryId ?: originalCard.categoryId
+
+            // 2. 이미지 유지 로직 (핵심!)
+            // 새로운 이미지가 들어오지 않았다면(null 또는 빈값), 기존 카드의 이미지를 그대로 서버에 보냄
+            val finalImageUrl = if (newImageUrl.isNullOrEmpty()) {
+                originalCard.imageUrl
+            } else {
+                newImageUrl
+            }
 
             val updatedWordItem = repository.updateWord(
                 cardId = originalCard.cardId,
                 categoryId = categoryId,
                 word = newWord,
-                imageUrl = newImageUrl
+                imageUrl = finalImageUrl
             )
 
             if (updatedWordItem != null) {
+                // 🟢 [해결] 카테고리가 이동되었으므로, 전체 데이터를 새로고침하여 로컬 상태를 서버와 동기화합니다.
+                refreshAllData()
+
+                // 현재 탭을 다시 불러옵니다.
+                // 만약 카테고리가 바뀌었다면, 현재 탭 리스트에서 해당 카드는 자연스럽게 사라지게 됩니다.
                 selectCategory(_selectedCategoryIndex.value)
+
                 _eventFlow.emit(MainUiEvent.ShowSnackbar("수정되었습니다."))
-                updateCardInList(originalCard.cardId, updatedWordItem.cardId, updatedWordItem.isFavorite)
+
+                // ❌ 기존의 updateCardInList(...) 호출은 삭제하세요.
+                // 이 함수가 이전 리스트에 카드를 고정시켜버려서 이동이 안 되는 것처럼 보였던 것입니다.
             } else {
                 _eventFlow.emit(MainUiEvent.ShowSnackbar("수정에 실패했습니다."))
             }
