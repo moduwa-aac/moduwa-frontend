@@ -45,12 +45,11 @@ fun AppNavGraph() {
     val logoutCompleted by authViewModel.logoutCompleted.collectAsState()
     val withdrawCompleted by authViewModel.withdrawCompleted.collectAsState()
 
-    /* ---------- 🔥 로그인 상태일 때만 1분 polling ---------- */
+    /* ---------- 로그인 상태일 때만 1분 polling ---------- */
     val loginState by authViewModel.loginState.collectAsState()
 
     LaunchedEffect(loginState) {
         if (loginState != null) {
-            routineVm.checkRoutineModal() // 즉시 1회
             while (loginState != null) {
                 delay(60_000)
                 routineVm.checkRoutineModal()
