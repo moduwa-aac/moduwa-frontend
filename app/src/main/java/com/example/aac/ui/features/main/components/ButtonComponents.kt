@@ -108,7 +108,7 @@ fun CategoryTabItem(
         modifier = modifier
             .fillMaxHeight()
             .clickable { onClick() }
-            .background(if (item.isSelected) Color(0xFFE3F2FD) else Color.Transparent),
+            .background(if (item.isSelected) Color(0xFF267FD6) else Color.Transparent),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
@@ -136,9 +136,8 @@ fun CategoryTabItem(
 
         Text(
             text = item.name,
-            fontSize = 14.sp,
-            color = if (item.isSelected) Color(0xFF0088FF) else Color.Black,
-            fontWeight = if (item.isSelected) FontWeight.Bold else FontWeight.Normal
+            fontSize = 18.sp,
+            color = if (item.isSelected) Color.White else Color.Black,
         )
     }
 }
