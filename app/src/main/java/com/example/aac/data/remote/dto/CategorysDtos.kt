@@ -23,12 +23,12 @@ data class CreateCategoryRequest(
     @SerializedName("iconUrl") val iconUrl: String? = null
 )
 
-// 3. 카테고리 수정(PATCH) 요청 (🔥 여기 필드 4개 확인!)
+// 3. 카테고리 수정(PATCH) 요청
 data class UpdateCategoryRequest(
-    @SerializedName("name") val name: String,
-    @SerializedName("iconKey") val iconKey: String,
-    @SerializedName("displayOrder") val displayOrder: Int, // ✅ 순서 필수
-    @SerializedName("iconUrl") val iconUrl: String? = null, // ✅ Url은 null로 전달
+    @SerializedName("name") val name: String?,
+    @SerializedName("iconKey") val iconKey: String? = null, // 🔥 Nullable로 변경
+    @SerializedName("displayOrder") val displayOrder: Int?,
+    @SerializedName("iconUrl") val iconUrl: String? = null, // 🔥 추가 및 Nullable 처리
     @SerializedName("isFavorite") val isFavorite: Boolean? = null
 )
 

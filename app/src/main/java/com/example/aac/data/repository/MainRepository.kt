@@ -32,11 +32,7 @@ class MainRepository {
         return try {
             val response = api.getWords(categoryId, onlyFavorite)
 
-            // ✅ response.data가 null이 아닌지 확인
             if (response.success && response.data != null) {
-
-                // 🚨 [수정 포인트] response.data가 아니라 response.data.words를 가져와야 함!
-                // 서버가 "words" 필드 안에 리스트를 넣어줬기 때문
                 val rawList = response.data.words.map { word ->
                     MainWordItem(
                         cardId = word.cardId,
@@ -44,6 +40,7 @@ class MainRepository {
                         imageUrl = word.imageUrl ?: "",
                         partOfSpeech = word.partOfSpeech,
                         categoryId = word.categoryId ?: "",
+                        categoryName = word.categoryName ?: "미분류", // 🔥 동료 코드 반영
                         isFavorite = word.isFavorite,
                         isDefault = word.isDefault ?: false,
                         displayOrder = word.displayOrder ?: 0
@@ -73,19 +70,15 @@ class MainRepository {
         imageUrl: String? // URL String 그대로 전달
     ): String? {
         return try {
-            // ✅ [수정] DTO 객체 생성
             val request = CreateWordRequest(
                 categoryId = categoryId,
                 word = word,
                 imageUrl = imageUrl
             )
 
-            // API 호출
             val response = api.createWord(request)
 
-            // 응답 처리 (data -> word -> cardId)
             if (response.success && response.data != null) {
-                // CreateWordResponseData 안에 MainWordItem이 들어있는 구조
                 response.data.word.cardId
             } else {
                 android.util.Log.e("MainRepo", "생성 실패(서버): ${response.message}")
@@ -101,7 +94,13 @@ class MainRepository {
     // 낱말 수정
     suspend fun updateWord(cardId: String, categoryId: String?, word: String?, imageUrl: String?): MainWordItem? {
         return try {
-            val request = UpdateWordRequest(categoryId, word, imageUrl)
+
+            val request = UpdateWordRequest(
+                categoryId = categoryId ?: "", // null이면 빈 문자열 전달
+                word = word ?: "",             // null이면 빈 문자열 전달
+                imageUrl = imageUrl            // imageUrl은 보통 Nullable이 허용됨
+            )
+
             val response = RetrofitInstance.api.updateWord(cardId, request)
             if (response.success) response.data?.word else null
         } catch (e: Exception) {
@@ -123,20 +122,19 @@ class MainRepository {
 
     suspend fun fetchWords(categoryId: String): List<MainWordItem> {
         return try {
-            // 여기도 getWords와 똑같이 처리해야 함
-            val response = api.getWords(categoryId) // API 재활용
+            val response = api.getWords(categoryId)
 
             if (response.success && response.data != null) {
-                // response.data.words 에서 꺼내야 함 (WordListResponse 구조)
                 response.data.words.map { word ->
                     MainWordItem(
                         cardId = word.cardId,
+                        categoryId = word.categoryId ?: "",
+                        categoryName = word.categoryName ?: "미분류",
+                        partOfSpeech = word.partOfSpeech,
                         word = word.word,
                         imageUrl = word.imageUrl ?: "",
-                        partOfSpeech = word.partOfSpeech,
-                        categoryId = word.categoryId ?: "",
-                        isFavorite = word.isFavorite,
                         isDefault = word.isDefault ?: false,
+                        isFavorite = word.isFavorite,
                         displayOrder = word.displayOrder ?: 0
                     )
                 }
@@ -178,9 +176,8 @@ class MainRepository {
 
     suspend fun getAiPredictions(words: List<String>, tone: String): List<String> {
         return try {
-            // tone: "HONORIFIC" or "INFORMAL"
             val request = AiPredictionRequest(words, tone)
-            val response = RetrofitInstance.api.getAiPredictions(request) // API 인터페이스도 맞춰야 함
+            val response = RetrofitInstance.api.getAiPredictions(request)
 
             if (response.success && response.data != null) {
                 response.data.sentences
@@ -215,11 +212,9 @@ class MainRepository {
     suspend fun toggleFavorite(cardId: String, isFavorite: Boolean): FavoriteResult? {
         return try {
             val request = FavoriteRequest(isFavorite)
-            // API 호출 (반환 타입을 임시로 Map이나 유연한 객체로 변경하거나, 아래처럼 처리)
             val response = api.toggleFavorite(cardId, request)
 
             if (response.success && response.data != null) {
-                // 서버가 준 데이터만 사용
                 FavoriteResult(
                     cardId = response.data.cardId,
                     isFavorite = response.data.isFavorite
@@ -232,18 +227,19 @@ class MainRepository {
             null
         }
     }
+
     suspend fun getAiSentenceFavorites(): List<MainWordItem> {
         return try {
             val response = RetrofitInstance.api.getSentenceFavorites()
             if (response.success && response.data != null) {
-                // 서버에서 받은 AI 즐겨찾기 목록을 MainWordItem으로 둔갑(?)시킵니다.
                 response.data.favorites.map { favItem ->
                     MainWordItem(
-                        cardId = favItem.id, // 삭제/수정을 위해 id 보관
-                        word = favItem.sentence, // 문장을 낱말 이름 자리에 넣음
-                        imageUrl = "", // AI 문장은 기본적으로 사진 없음
-                        partOfSpeech = "AI_SENTENCE", // 🟢 일반 낱말과 구분하기 위한 꼼수 태그!
+                        cardId = favItem.id,
+                        word = favItem.sentence,
+                        imageUrl = "",
+                        partOfSpeech = "AI_SENTENCE",
                         categoryId = "FAVORITE_SENTENCE_DUMMY",
+                        categoryName = "AI 문장", // 🔥 DTO 변경에 따른 컴파일 에러 방지용
                         isFavorite = true,
                         isDefault = false,
                         displayOrder = 0
@@ -267,5 +263,4 @@ class MainRepository {
             false
         }
     }
-
 }

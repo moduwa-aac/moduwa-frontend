@@ -2,13 +2,14 @@ package com.example.aac.ui.features.main
 
 import android.content.Context
 import android.media.MediaPlayer
-import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.aac.R
+import com.example.aac.data.mapper.IconMapper
 import com.example.aac.data.remote.dto.MainWordItem
 import com.example.aac.data.repository.MainRepository
 import com.example.aac.data.repository.SentenceDataRepository
@@ -33,42 +34,34 @@ class MainViewModel : ViewModel() {
 
     private val CATEGORY_ITEMS_PER_PAGE = 8
 
-    // UI 상태: 전체 카테고리 리스트
+    // UI 상태
     private val _categories = MutableStateFlow<List<CategoryItem>>(emptyList())
     val categories: StateFlow<List<CategoryItem>> = _categories.asStateFlow()
 
     private val _categoryPageIndex = MutableStateFlow(0)
     val categoryPageIndex: StateFlow<Int> = _categoryPageIndex.asStateFlow()
 
-    // 카테고리 총 페이지 수
     private val _categoryTotalPageCount = MutableStateFlow(0)
     val categoryTotalPageCount: StateFlow<Int> = _categoryTotalPageCount.asStateFlow()
 
-    // UI 상태: 현재 보여줄 단어 리스트
     private val _words = MutableStateFlow<List<MainWordItem>>(emptyList())
     val words: StateFlow<List<MainWordItem>> = _words.asStateFlow()
 
-    // UI 상태: 선택된 카테고리 인덱스
     private val _selectedCategoryIndex = MutableStateFlow(0)
     val selectedCategoryIndex: StateFlow<Int> = _selectedCategoryIndex.asStateFlow()
 
-    // UI 상태: 상단에 선택된 카드들 (문장 만들기용)
     private val _selectedCards = MutableStateFlow<List<MainWordItem>>(emptyList())
     val selectedCards: StateFlow<List<MainWordItem>> = _selectedCards.asStateFlow()
 
-    // UI 상태: 어미 단어 리스트 (우측 사이드바용)
     private val _endingWords = MutableStateFlow<List<MainWordItem>>(emptyList())
     val endingWords: StateFlow<List<MainWordItem>> = _endingWords.asStateFlow()
 
-    // UI 상태: AI가 추천한 문장 리스트
     private val _predictedSentences = MutableStateFlow<List<String>>(emptyList())
     val predictedSentences: StateFlow<List<String>> = _predictedSentences.asStateFlow()
 
-    // UI 상태: 반말/존댓말 모드 (기본: 존댓말 false)
     private val _isInformal = MutableStateFlow(false)
     val isInformal: StateFlow<Boolean> = _isInformal.asStateFlow()
 
-    // UI 상태: 낱말 그리드 페이지 제어용
     private val _wordPageIndex = MutableStateFlow(0)
     val wordPageIndex: StateFlow<Int> = _wordPageIndex.asStateFlow()
 
@@ -80,8 +73,6 @@ class MainViewModel : ViewModel() {
     private var endingCategoryId: String? = null
     private var mediaPlayer: MediaPlayer? = null
 
-
-    // 낱말 추가 다이얼로그 상태
     var showAddWordDialog by mutableStateOf(false)
         private set
 
@@ -89,76 +80,50 @@ class MainViewModel : ViewModel() {
         fetchInitialData()
     }
 
-    // 1. 초기 데이터 로드 (카테고리 + 어미 분리)
+    // 초기 데이터 로드 (고정 카테고리 + 서버 카테고리 + 어미 분리)
     private fun fetchInitialData() {
         viewModelScope.launch {
             try {
-                // 1. 토큰 저장 등 타이밍 이슈 방지용 대기
                 kotlinx.coroutines.delay(500)
 
-                // ✅ [핵심] 여기서 변수를 선언해야 아래에서 빨간 줄이 안 뜹니다!
                 val fetchedCategories = repository.getCategories()
 
-                // 로그로 확인
-                Log.d("MainViewModel", "📜 가져온 카테고리: ${fetchedCategories.map { it.name }}")
-
-                // -------------------------------------------------
-                // 2. '어미' 카테고리 처리 (우측 사이드바용)
-                // -------------------------------------------------
+                // 1. 어미 카테고리 처리
                 val endingCategory = fetchedCategories.find { it.name.trim() == "어미" }
                 endingCategoryId = endingCategory?.id
 
                 if (endingCategory != null) {
                     val endings = repository.fetchWords(endingCategory.id)
-
-                    // UI State에 값 넣기 (품사 'E'로 강제)
                     _endingWords.value = endings.map { it.copy(partOfSpeech = "E") }
-
-                    Log.d("MainViewModel", "✅ 어미 데이터 로드 완료: ${endings.size}개")
-                } else {
-                    Log.e("MainViewModel", "⚠️ '어미' 카테고리 없음")
                 }
 
-                if (fetchedCategories.isEmpty()) return@launch
+                // 2. 고정 카테고리 생성
+                val fixedCategories = listOf(
+                    CategoryItem(name = "즐겨찾기", iconRes = R.drawable.ic_favorite, isSelected = false, serverId = null)
+                )
 
-                // -------------------------------------------------
-                // 3. 일반 카테고리 처리 (상단 탭용)
-                // -------------------------------------------------
+                // 3. 일반 카테고리 (어미 제외, 아이콘 매퍼 적용)
                 val serverCategories = fetchedCategories
-                    .filter { it.name.trim() != "어미" } // 어미는 탭에서 제외
+                    .filter { it.name.trim() != "어미" && it.name.trim() != "전체" && it.name.trim() != "즐겨찾기" }
                     .map { item ->
-                        // 아이콘 매핑 (공백 제거 후 비교)
-                        val icon = when (item.name.replace(" ", "")) {
-                            "최근사용" -> R.drawable.ic_recent_use
-                            "즐겨찾기" -> R.drawable.ic_favorite
-                            "사람" -> R.drawable.ic_human
-                            "행동" -> R.drawable.ic_act
-                            "감정", "상태" -> R.drawable.ic_emotion
-                            "음식" -> R.drawable.ic_food
-                            "장소" -> R.drawable.ic_place
-                            "신체" -> R.drawable.ic_human
-                            else -> R.drawable.ic_default
-                        }
-
                         CategoryItem(
                             name = item.name,
-                            iconRes = icon,
+                            iconRes = IconMapper.toLocalResource(item.iconKey),
                             isSelected = false,
                             serverId = item.id
                         )
                     }
 
-                // UI 갱신
-                _categories.value = serverCategories
-                calculateCategoryPages(serverCategories.size)
+                // 4. 병합 및 UI 갱신
+                val allCategories = fixedCategories + serverCategories
+                _categories.value = allCategories
+                calculateCategoryPages(allCategories.size)
 
-                // 첫 번째 카테고리 자동 선택
-                if (serverCategories.isNotEmpty()) {
+                if (allCategories.isNotEmpty()) {
                     selectCategory(0)
                 }
 
             } catch (e: Exception) {
-                e.printStackTrace()
                 Log.e("MainViewModel", "초기 데이터 로드 실패: ${e.message}")
             }
         }
@@ -180,37 +145,31 @@ class MainViewModel : ViewModel() {
         }
     }
 
-    // 카테고리 선택
+    // 카테고리 선택 및 낱말 호출 (AI 문장 병합 포함)
     fun selectCategory(index: Int) {
         val currentList = _categories.value
         if (index !in currentList.indices) return
 
         _selectedCategoryIndex.value = index
 
-        // 탭 UI 갱신
         val updatedList = currentList.mapIndexed { i, item -> item.copy(isSelected = i == index) }
         _categories.value = updatedList
 
         val selectedItem = updatedList[index]
 
         viewModelScope.launch {
-            // "즐겨찾기"라는 이름이거나 "즐겨찾기" 아이콘을 쓰는 경우
-            if (selectedItem.name.replace(" ", "") == "즐겨찾기") {
+            val catName = selectedItem.name.replace(" ", "")
 
-                // 1. 기존: 낱말 즐겨찾기 가져오기
+            if (catName == "전체") {
+                val words = repository.getWords()
+                _words.value = words.distinctBy { it.cardId }
+            } else if (catName == "즐겨찾기") {
                 val favWords = repository.getWords(categoryId = null, onlyFavorite = true)
                 val filteredFavWords = favWords.filter { it.isFavorite }.distinctBy { it.word }
-
-                // 🟢 2. 추가: AI 문장 즐겨찾기 가져오기
                 val aiSentences = repository.getAiSentenceFavorites()
 
-                // 🟢 3. 병합: 낱말 목록 뒤에 문장 목록을 붙임
-                val combinedList = filteredFavWords + aiSentences
-
-                _words.value = combinedList
-
+                _words.value = filteredFavWords + aiSentences
             } else {
-                // 일반 카테고리
                 selectedItem.serverId?.let { serverId ->
                     val words = repository.getWords(categoryId = serverId)
                     _words.value = words.distinctBy { it.word }
@@ -218,12 +177,11 @@ class MainViewModel : ViewModel() {
                     _words.value = emptyList()
                 }
             }
-            // 페이지 초기화
             _wordPageIndex.value = 0
         }
     }
 
-    // 2. AI 문장 예측 요청 (API-01 / API-05 분기 처리)
+    // AI 문장 예측 요청
     private fun requestAiPrediction() {
         val currentList = _selectedCards.value
         if (currentList.isEmpty()) {
@@ -231,7 +189,6 @@ class MainViewModel : ViewModel() {
             return
         }
 
-        // 낱말(Content)과 어미(Ending) 분리
         val endingCards = currentList.filter {
             it.partOfSpeech == "E" || it.partOfSpeech == "ENDING" || it.categoryId == endingCategoryId
         }.map { it.word }
@@ -240,40 +197,32 @@ class MainViewModel : ViewModel() {
             it.partOfSpeech != "E" && it.partOfSpeech != "ENDING" && it.categoryId != endingCategoryId
         }.map { it.word }
 
-        // Tone 결정 (반말/존댓말)
         val tone = if (_isInformal.value) "INFORMAL" else "HONORIFIC"
 
         viewModelScope.launch {
             val sentences = if (endingCards.isNotEmpty()) {
-                // 어미가 있으면 -> 스타일 변환 API (AI-05)
                 repository.getAiStyles(contentWords, endingCards, tone)
             } else {
-                // 어미가 없으면 -> 단순 예측 API (AI-01)
                 repository.getAiPredictions(contentWords, tone)
             }
             _predictedSentences.value = sentences
         }
     }
 
-    // 반말/존댓말 토글
     fun toggleTone() {
         _isInformal.value = !_isInformal.value
     }
 
-    // 상단 카드 추가
     fun addCard(card: MainWordItem) {
         if (_selectedCards.value.size >= 20) {
-            viewModelScope.launch { _eventFlow.emit(MainUiEvent.ShowSnackbar("낱말 카드는 최대 20개까지만 선택할 수 있어요.")) }
+            viewModelScope.launch { _eventFlow.emit(MainUiEvent.ShowSnackbar("최대 20개까지만 선택 가능합니다.")) }
             return
         }
         val newList = _selectedCards.value + card
         _selectedCards.value = newList
         SentenceDataRepository.selectedWords = newList
-
-        // 카드 변경 시 AI 요청
     }
 
-    // 상단 카드 삭제
     fun removeCard(index: Int) {
         val currentList = _selectedCards.value.toMutableList()
         if (index in currentList.indices) {
@@ -281,16 +230,13 @@ class MainViewModel : ViewModel() {
             _selectedCards.value = currentList
             SentenceDataRepository.selectedWords = currentList
         }
-        // 카드 변경 시 AI 요청
     }
 
-    // 상단 카드 전체 삭제
     fun clearSelectedCards() {
         _selectedCards.value = emptyList()
         SentenceDataRepository.selectedWords = emptyList()
     }
 
-    // 상단 카드 순서 이동
     fun moveCard(fromIndex: Int, toIndex: Int) {
         val currentList = _selectedCards.value.toMutableList()
         if (fromIndex in currentList.indices && toIndex in currentList.indices) {
@@ -310,16 +256,15 @@ class MainViewModel : ViewModel() {
     fun openAddWordDialog() { showAddWordDialog = true }
     fun closeAddWordDialog() { showAddWordDialog = false }
 
-    // 3. 새 낱말 생성 (자동 스크롤 기능 포함)
     fun createNewWord(word: String, imageUrl: String? = null) {
         val currentCatIndex = _selectedCategoryIndex.value
         val currentCategory = _categories.value.getOrNull(currentCatIndex)
         var targetCategoryId = currentCategory?.serverId
 
-        // 즐겨찾기 탭 처리 로직 (기존 동일)
         val isFavoritesTab = currentCategory?.name?.replace(" ", "") == "즐겨찾기"
+        val isAllTab = currentCategory?.name?.replace(" ", "") == "전체"
 
-        if (isFavoritesTab) {
+        if (isFavoritesTab || isAllTab) {
             val firstValidCat = _categories.value.firstOrNull { it.serverId != null }
             if (firstValidCat != null) {
                 targetCategoryId = firstValidCat.serverId
@@ -332,30 +277,14 @@ class MainViewModel : ViewModel() {
             return
         }
 
-        // ❌ 품사(pos) 변수 선언 삭제 (필요 없음)
-
         viewModelScope.launch {
-            // ✅ [수정] repository.createWord 인자가 3개로 줄어듦 (pos 삭제)
-            val newId = repository.createWord(targetCategoryId!!, word, imageUrl)
+            val newId = repository.createWord(targetCategoryId ?: "", word, imageUrl)
 
             if (newId != null) {
-                // 즐겨찾기 탭이면 자동 즐겨찾기
-                if (isFavoritesTab) {
-                    repository.toggleFavorite(newId, true)
-                }
-
+                if (isFavoritesTab) repository.toggleFavorite(newId, true)
                 closeAddWordDialog()
                 _eventFlow.emit(MainUiEvent.ShowSnackbar("낱말이 추가되었습니다."))
-
-                // 목록 갱신
-                if (isFavoritesTab) {
-                    val favWords = repository.getWords(categoryId = null, onlyFavorite = true)
-                    _words.value = favWords.filter { it.isFavorite }.distinctBy { it.word }
-                } else {
-                    val updatedList = repository.getWords(targetCategoryId).distinctBy { it.word }
-                    _words.value = updatedList
-                }
-
+                selectCategory(_selectedCategoryIndex.value)
                 _wordPageIndex.value = Int.MAX_VALUE
             } else {
                 _eventFlow.emit(MainUiEvent.ShowSnackbar("추가 실패: 서버 오류"))
@@ -363,7 +292,6 @@ class MainViewModel : ViewModel() {
         }
     }
 
-    // 낱말 수정
     fun updateWord(originalCard: MainWordItem, newWord: String, newCategoryName: String, newImageUrl: String?) {
         viewModelScope.launch {
             val targetCategory = _categories.value.find { it.name == newCategoryName }
@@ -377,11 +305,8 @@ class MainViewModel : ViewModel() {
             )
 
             if (updatedWordItem != null) {
-                // 현재 카테고리 새로고침
                 selectCategory(_selectedCategoryIndex.value)
                 _eventFlow.emit(MainUiEvent.ShowSnackbar("수정되었습니다."))
-
-                // 만약 선택된 카드에 포함되어 있다면 거기도 업데이트
                 updateCardInList(originalCard.cardId, updatedWordItem.cardId, updatedWordItem.isFavorite)
             } else {
                 _eventFlow.emit(MainUiEvent.ShowSnackbar("수정에 실패했습니다."))
@@ -389,34 +314,28 @@ class MainViewModel : ViewModel() {
         }
     }
 
-    // ✅ 즐겨찾기 토글 함수
     fun toggleFavorite(card: MainWordItem) {
         viewModelScope.launch {
-            // 🟢 1. AI 문장인 경우 (우리가 달아둔 꼼수 태그로 확인)
             if (card.partOfSpeech == "AI_SENTENCE") {
                 val success = repository.deleteAiSentenceFavorite(card.cardId)
                 if (success) {
-                    // 삭제 성공 시 리스트 다시 불러오기 (화면 갱신)
                     selectCategory(_selectedCategoryIndex.value)
                     _eventFlow.emit(MainUiEvent.ShowSnackbar("즐겨찾기에서 제거되었습니다."))
                 } else {
                     _eventFlow.emit(MainUiEvent.ShowSnackbar("AI 문장 즐겨찾기 해제 실패"))
                 }
-                return@launch // 아래 낱말 로직은 실행하지 않고 종료
+                return@launch
             }
 
-            // 🔴 2. 기존 일반 낱말인 경우
             val newFavStatus = !card.isFavorite
             val result = repository.toggleFavorite(card.cardId, newFavStatus)
 
             if (result != null) {
-                // UI 즉각 갱신 로직
                 val updatedList = _words.value.map {
                     if (it.cardId == card.cardId) it.copy(isFavorite = result.isFavorite) else it
                 }
                 _words.value = updatedList
 
-                // 즐겨찾기 탭이었다면 목록 재정렬
                 val currentCategoryName = _categories.value.getOrNull(_selectedCategoryIndex.value)?.name?.replace(" ", "") ?: ""
                 if (currentCategoryName == "즐겨찾기") {
                     selectCategory(_selectedCategoryIndex.value)
@@ -430,10 +349,8 @@ class MainViewModel : ViewModel() {
         }
     }
 
-    // ✅ 삭제 함수
     fun deleteWord(wordItem: MainWordItem) {
         viewModelScope.launch {
-            // 🟢 1. AI 문장인 경우 (즐겨찾기 해제와 동일하게 처리)
             if (wordItem.partOfSpeech == "AI_SENTENCE") {
                 val success = repository.deleteAiSentenceFavorite(wordItem.cardId)
                 if (success) {
@@ -443,7 +360,6 @@ class MainViewModel : ViewModel() {
                 return@launch
             }
 
-            // 🔴 2. 기존 일반 낱말인 경우
             val success = repository.deleteWord(wordItem.cardId)
             if (success) {
                 selectCategory(_selectedCategoryIndex.value)
@@ -454,20 +370,16 @@ class MainViewModel : ViewModel() {
         }
     }
 
-
-    // 내부 리스트 상태 동기화 헬퍼
     private fun updateCardInList(oldId: String, newId: String, isFavorite: Boolean) {
         _words.value = _words.value.map { if (it.cardId == oldId) it.copy(cardId = newId, isFavorite = isFavorite) else it }
         _endingWords.value = _endingWords.value.map { if (it.cardId == oldId) it.copy(cardId = newId, isFavorite = isFavorite) else it }
         _selectedCards.value = _selectedCards.value.map { if (it.cardId == oldId) it.copy(cardId = newId, isFavorite = isFavorite) else it }
     }
 
-    // 페이지 인덱스 설정 (UI에서 호출)
     fun setWordPageIndex(index: Int) {
         _wordPageIndex.value = index
     }
 
-    // 전체 문장 재생 (상단 재생 버튼)
     fun playSentence(context: Context) {
         val sentence = _selectedCards.value.joinToString(" ") { it.word }
         if (sentence.isBlank()) {
@@ -477,7 +389,6 @@ class MainViewModel : ViewModel() {
         playTts(context, sentence)
     }
 
-    // 5. 단일 낱말 재생 (모달에서 호출)
     fun playSingleWord(context: Context, word: String) {
         if (word.isBlank()) return
         playTts(context, word)

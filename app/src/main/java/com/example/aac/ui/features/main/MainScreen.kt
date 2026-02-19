@@ -95,12 +95,16 @@ fun MainScreen(
     }
 
     // 낱말 추가 다이얼로그 (생성)
+    // 낱말 추가 다이얼로그 (생성)
     if (viewModel.showAddWordDialog) {
         AddWordCardDialog(
             onDismissRequest = { viewModel.closeAddWordDialog() },
-            onSaveClick = { word, imageUri ->
-                // ✅ [기능 4] 생성 시 뷰모델이 자동으로 마지막 페이지로 이동시킴
-                viewModel.createNewWord(word, imageUri)
+            // ✅ [수정] 파라미터에 bitmap 추가 및 uri를 String으로 변환하여 전달
+            onSaveClick = { word, uri, bitmap ->
+                // 만약 ViewModel의 createNewWord가 String?을 받는다면 toString() 처리
+                viewModel.createNewWord(word, uri?.toString())
+                // 참고: bitmap 처리가 필요하다면 뷰모델 함수를 확장해야 하지만,
+                // 일단 에러 해결을 위해 uri 위주로 전달합니다.
             }
         )
     }
@@ -419,19 +423,30 @@ fun MainScreen(
 
     // 2. 수정(Edit) 다이얼로그
     if (selectedDetailCard != null && showEditDialog) {
-        val realCategories = categoryList.filter {
-            it.name !in listOf("최근 사용", "최근사용", "즐겨찾기")
-        }
+        // "최근사용", "즐겨찾기" 등을 제외한 순수 카테고리 리스트 생성
+        val realCategories = categoryList
+            .filter { it.name !in listOf("최근 사용", "최근사용", "즐겨찾기") }
+            .map {
+                com.example.aac.domain.model.Category(
+                    id = it.serverId ?: "",
+                    name = it.name,
+                    iconKey = "", // 아이콘 키 (필요시 추가 매핑)
+                    iconUrl = it.iconUrl, // 🟢 [해결] 이 부분이 누락되면 에러가 납니다
+                    displayOrder = 0,
+                    wordCount = 0
+                )
+            }
 
         FlashcardEditDialog(
             card = selectedDetailCard!!,
-            categories = realCategories,
+            allCategories = realCategories,
             onDismiss = {
                 showEditDialog = false
                 selectedDetailCard = null
             },
-            onSave = { newWord, newCategory, newImage ->
-                viewModel.updateWord(selectedDetailCard!!, newWord, newCategory, newImage)
+            onSave = { newWord, newCategoryId, newUri, newBitmap ->
+                // Uri를 String으로 변환하여 뷰모델에 전달
+                viewModel.updateWord(selectedDetailCard!!, newWord, newCategoryId, newUri?.toString())
                 showEditDialog = false
                 selectedDetailCard = null
             }
