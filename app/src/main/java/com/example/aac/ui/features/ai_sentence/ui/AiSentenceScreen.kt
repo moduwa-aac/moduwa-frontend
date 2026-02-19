@@ -22,7 +22,6 @@ import com.example.aac.data.remote.dto.MainWordItem
 import com.example.aac.feature.ai_sentence.ui.components.SentenceCard
 import com.example.aac.ui.components.CustomTopBar
 import com.example.aac.ui.components.WordCard
-// ✅ 드래그 유틸리티 import (패키지명 확인 필요)
 import com.example.aac.ui.util.dragAndDropItem
 import com.example.aac.ui.util.rememberDragDropState
 import kotlinx.coroutines.launch
@@ -208,7 +207,7 @@ fun AiSentenceScreen(
                             scope.launch {
                                 snackbarHostState.showSnackbar("새로고침 중...", duration = SnackbarDuration.Short)
                             }
-                            vm.fetchAiSentences(state.selectedWords.map { it.word }, isRefresh = true)
+                            vm.fetchAiSentences(state.selectedWords, isRefresh = true)
                         }
 
                         TopSquareButton(

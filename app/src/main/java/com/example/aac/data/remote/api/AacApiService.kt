@@ -1,6 +1,8 @@
 package com.example.aac.data.remote.api
 
 import com.example.aac.data.remote.dto.*
+import okhttp3.MultipartBody
+import okhttp3.RequestBody
 import retrofit2.http.*
 import okhttp3.ResponseBody
 
@@ -46,8 +48,8 @@ interface AacApiService {
     @GET("api/words")
     suspend fun getWords(
         @Query("categoryId") categoryId: String? = null,
-        @Query("onlyFavorite") onlyFavorite: Boolean? = null
-    ): WordResponse
+        @Query("isFavorite") isFavorite: Boolean = false
+    ): BaseResponse<WordListResponse> // 👈 여기가 핵심!
 
     // [Category] 카테고리 목록 조회
     @GET("api/categories")
@@ -80,15 +82,10 @@ interface AacApiService {
     @PATCH("api/settings/grid")
     suspend fun updateGridSetting(@Body request: GridSettingRequest): GridSettingResponse
 
-    // [AI] 문장 추천
-    @POST("api/ai/predictions")
-    suspend fun getAiPredictions(@Body request: AiPredictionRequest): AiPredictionResponse
-
     @POST("api/words")
     suspend fun createWord(
         @Body request: CreateWordRequest
     ): BaseResponse<CreateWordResponseData>
-
     @PATCH("api/words/{cardId}")
     suspend fun updateWord(
         @Path("cardId") cardId: String,
@@ -107,4 +104,31 @@ interface AacApiService {
     // TTS 오디오 생성
     @POST("api/ai/tts")
     suspend fun generateTts(@Body request: TtsRequest): ResponseBody
+
+    @POST("api/ai/predictions")
+    suspend fun getAiPredictions(
+        @Body request: AiPredictionRequest
+    ): BaseResponse<AiPredictionResponseData>
+
+    // ✅ [AI-05] 스타일 문장 변환 (어미 있음 + tone 추가됨)
+    @POST("api/ai/styles")
+    suspend fun getAiStyles(
+        @Body request: AiStyleRequest
+    ): BaseResponse<AiStyleResponseData>
+
+    @Multipart
+    @PATCH("api/words/{id}")
+    suspend fun updateWord(
+        @Path("id") id: String,
+        @Part("categoryId") categoryId: RequestBody?,
+        @Part("word") word: RequestBody?,
+        @Part image: MultipartBody.Part?
+    ): BaseResponse<WordDto>
+
+    // ✅ [수정] 즐겨찾기 토글 (단어 정보 반환)
+    @PATCH("api/words/{id}/favorite")
+    suspend fun toggleFavorite(
+        @Path("id") id: String,
+        @Body request: FavoriteRequest // { "isFavorite": true }
+    ): BaseResponse<WordDto>
 }

@@ -138,11 +138,16 @@ class CategoryRepositoryImpl(
     override suspend fun getWords(categoryId: String?): Result<List<Word>> {
         return try {
             val response = api.getWords(categoryId)
-            if (response.success) {
-                val domainList = WordMapper.mapToDomain(response)
+
+            // 1. success 체크 + data가 null이 아닌지 체크
+            if (response.success && response.data != null) {
+
+                // 🚨 [수정] response 전체가 아니라, 그 안의 .data를 넘겨야 합니다!
+                val domainList = WordMapper.mapToDomain(response.data)
+
                 Result.success(domainList)
             } else {
-                Result.failure(Exception(response.message))
+                Result.failure(Exception(response.message ?: "데이터가 비어있거나 에러가 발생했습니다."))
             }
         } catch (e: Exception) {
             Result.failure(e)

@@ -1,23 +1,28 @@
 package com.example.aac.data.mapper
 
+import com.example.aac.data.remote.dto.WordListResponse
 import com.example.aac.data.remote.dto.WordResponse
 import com.example.aac.domain.model.Word
 
+// WordMapper.kt (위치: data/mapper/WordMapper.kt 또는 비슷한 경로)
+
 object WordMapper {
-    fun mapToDomain(response: WordResponse): List<Word> {
-        // response.data.words는 이제 List<WordItem> 입니다.
-        return response.data.words.map { dto ->
+    // 🔴 [수정 전] fun mapToDomain(response: WordResponse): List<Word> { ... }
+
+    // 🟢 [수정 후] 인자 타입을 WordListResponse로 변경
+    fun mapToDomain(response: WordListResponse): List<Word> {
+        // response.words 가 실제 리스트입니다.
+        return response.words.map { dto ->
             Word(
                 cardId = dto.cardId,
+                categoryId = dto.categoryId ?: "",
+                // ... 나머지 필드 매핑 ...
                 word = dto.word,
                 imageUrl = dto.imageUrl ?: "",
                 partOfSpeech = dto.partOfSpeech,
-                categoryId = dto.categoryId ?: "", // null이면 빈 문자열
                 isFavorite = dto.isFavorite,
-
-                // 🔥 [수정] null 안전 처리 추가 (Boolean? -> Boolean, Int? -> Int)
-                isDefault = dto.isDefault ?: false,      // null이면 false
-                displayOrder = dto.displayOrder ?: 0     // null이면 0
+                isDefault = dto.isDefault ?: false,
+                displayOrder = dto.displayOrder ?: 0
             )
         }
     }

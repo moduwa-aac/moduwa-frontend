@@ -17,22 +17,23 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.aac.R
 import com.example.aac.data.remote.dto.MainWordItem
 import com.example.aac.data.repository.SentenceDataRepository
 import com.example.aac.ui.components.DashedAddCardItem
 import com.example.aac.ui.components.WordCard
-import com.example.aac.ui.features.flashcard_edit_delete.FlashcardDetailDialog
-import com.example.aac.ui.features.main.components.*
-import kotlinx.coroutines.launch
 import com.example.aac.ui.features.category.components.AddWordCardDialog
+import com.example.aac.ui.features.flashcard_edit_delete.FlashcardDetailDialog
 import com.example.aac.ui.features.flashcard_edit_delete.FlashcardEditDialog
+import com.example.aac.ui.features.main.components.*
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -49,25 +50,32 @@ fun MainScreen(
     val selectedCards by viewModel.selectedCards.collectAsState()
     val endingWords by viewModel.endingWords.collectAsState() // 어미 카드 리스트
 
+    // ✅ [수정] 페이지 인덱스를 ViewModel에서 구독 (자동 스크롤 기능)
+    val currentPage by viewModel.wordPageIndex.collectAsState()
+
     // 로컬 상태 관리
     var selectedDetailCard by remember { mutableStateOf<MainWordItem?>(null) }
     var showEditDialog by remember { mutableStateOf(false) }
 
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
-
-    var currentPage by remember { mutableIntStateOf(0) }
+    val context = androidx.compose.ui.platform.LocalContext.current
 
     // 카테고리 페이지네이션 관련
     val categoryPageIndex by viewModel.categoryPageIndex.collectAsState()
     val visibleCategories = remember(categoryList, categoryPageIndex) {
-        categoryList.chunked(8).getOrNull(categoryPageIndex) ?: emptyList()
+        val chunkSize = 8
+        if (categoryList.isNotEmpty()) {
+            categoryList.chunked(chunkSize).getOrNull(categoryPageIndex) ?: emptyList()
+        } else {
+            emptyList()
+        }
     }
 
-    val context = androidx.compose.ui.platform.LocalContext.current
-
-    // 카테고리가 바뀌면 1페이지로 초기화
-    LaunchedEffect(selectedCategoryIndex) { currentPage = 0 }
+    // 카테고리가 바뀌면 1페이지로 초기화 (뷰모델 함수 호출)
+    LaunchedEffect(selectedCategoryIndex) {
+        viewModel.setWordPageIndex(0)
+    }
 
     // 스낵바 이벤트 수신
     LaunchedEffect(Unit) {
@@ -91,6 +99,7 @@ fun MainScreen(
         AddWordCardDialog(
             onDismissRequest = { viewModel.closeAddWordDialog() },
             onSaveClick = { word, imageUri ->
+                // ✅ [기능 4] 생성 시 뷰모델이 자동으로 마지막 페이지로 이동시킴
                 viewModel.createNewWord(word, imageUri)
             }
         )
@@ -115,6 +124,7 @@ fun MainScreen(
                 onClearAll = { viewModel.clearSelectedCards() },
                 onMoveCard = { from, to -> viewModel.moveCard(from, to) },
                 onNavigateToAiSentence = {
+                    // ✅ [기능 2] AI 요청 데이터는 ViewModel에서 이미 처리됨. 화면 이동만 수행
                     SentenceDataRepository.selectedWords = selectedCards
                     onNavigateToAiSentence()
                 },
@@ -137,9 +147,8 @@ fun MainScreen(
                         val globalIndex = (categoryPageIndex * 8) + localIndex
                         viewModel.selectCategory(globalIndex)
                     },
-                    // 카테고리 바의 페이지 이동 버튼 연결 (필요 시)
-                     onPrevClick = { viewModel.prevCategoryPage() },
-                     onNextClick = { viewModel.nextCategoryPage() },
+                    onPrevClick = { viewModel.prevCategoryPage() },
+                    onNextClick = { viewModel.nextCategoryPage() },
                     modifier = Modifier.weight(1f)
                 )
 
@@ -182,35 +191,34 @@ fun MainScreen(
                         .fillMaxHeight()
                 ) {
                     val availableHeight = maxHeight
-                    val contentHeight = availableHeight - 32.dp // 패딩 제외
-
-                    val availableWidth = maxWidth - 70.dp - commonSpacing // 컨트롤바, 간격 제외
+                    val contentHeight = availableHeight - 32.dp
+                    val availableWidth = maxWidth - 70.dp - commonSpacing
                     val cardSize = (availableWidth - (commonSpacing * (columnCount - 1))) / columnCount
                     val rowHeight = cardSize + commonSpacing
-
-                    // 한 페이지에 들어갈 수 있는 행(Row)의 개수
                     val maxRows = (contentHeight / rowHeight).toInt().coerceAtLeast(1)
-
-                    // 한 페이지당 아이템 개수 (행 * 열)
                     val pageSize = maxRows * columnCount
 
-                    // 0번(최근 사용)이 아니면 '추가 버튼'이 맨 앞에 하나 있다고 가정
-                    val hasAddButton = selectedCategoryIndex != 0
+                    // ✅ [1] 카테고리 확인 (공백 제거 후 비교)
+                    val currentCategoryName = categoryList.getOrNull(selectedCategoryIndex)?.name?.replace(" ", "") ?: ""
 
-                    // 전체 아이템 개수 (버튼 포함)
+                    // "최근사용", "즐겨찾기"인지 확인
+                    val isSpecialCategory = currentCategoryName == "최근사용" || currentCategoryName == "즐겨찾기"
+
+                    // 특수 카테고리면 추가 버튼 숨김
+                    val hasAddButton = !isSpecialCategory
+
+                    // 전체 아이템 개수 계산
                     val totalItemCount = wordList.size + (if (hasAddButton) 1 else 0)
-
-                    // 최대 페이지 (0부터 시작)
                     val maxPage = if (totalItemCount == 0) 0 else (totalItemCount - 1) / pageSize
 
-                    // 페이지 범위 안전장치
-                    if (currentPage > maxPage) currentPage = maxPage
+                    // 페이지 보정
+                    val safeCurrentPage = currentPage.coerceIn(0, maxPage)
+                    if (safeCurrentPage != currentPage && currentPage != Int.MAX_VALUE) {
+                        viewModel.setWordPageIndex(safeCurrentPage)
+                    }
 
-                    // 현재 페이지의 시작/끝 인덱스
-                    val startIndex = currentPage * pageSize
+                    val startIndex = safeCurrentPage * pageSize
                     val endIndex = minOf(startIndex + pageSize, totalItemCount)
-
-                    // 현재 화면에 그릴 아이템 개수
                     val currentItemCount = if (endIndex > startIndex) endIndex - startIndex else 0
 
                     Row(modifier = Modifier.fillMaxSize()) {
@@ -222,7 +230,7 @@ fun MainScreen(
                                 .background(Color.White, RoundedCornerShape(8.dp))
                                 .padding(16.dp)
                         ) {
-                            if (totalItemCount == 0) {
+                            if (totalItemCount == 0 && !hasAddButton) {
                                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                                     Text("등록된 낱말 카드가 없습니다.", color = Color.Gray, fontSize = 20.sp)
                                 }
@@ -232,21 +240,40 @@ fun MainScreen(
                                     horizontalArrangement = Arrangement.spacedBy(commonSpacing),
                                     verticalArrangement = Arrangement.spacedBy(commonSpacing),
                                     modifier = Modifier.fillMaxSize(),
-                                    userScrollEnabled = false // 스크롤 막음 (페이지네이션 사용)
+                                    userScrollEnabled = false
                                 ) {
                                     items(currentItemCount) { index ->
                                         val absoluteIndex = startIndex + index
 
-                                        if (hasAddButton && absoluteIndex == 0) {
-                                            // 추가 버튼
-                                            DashedAddCardItem(
-                                                modifier = Modifier.aspectRatio(1f),
-                                                onClick = { viewModel.openAddWordDialog() }
-                                            )
+                                        if (hasAddButton) {
+                                            // 🟢 [일반 카테고리] : 추가 버튼 있음 + 롱클릭 가능
+                                            if (absoluteIndex == 0) {
+                                                DashedAddCardItem(
+                                                    modifier = Modifier.aspectRatio(1f),
+                                                    onClick = { viewModel.openAddWordDialog() }
+                                                )
+                                            } else {
+                                                val wordDataIndex = absoluteIndex - 1
+                                                if (wordDataIndex in wordList.indices) {
+                                                    val wordItem = wordList[wordDataIndex]
+                                                    WordCard(
+                                                        text = wordItem.word,
+                                                        imageUrl = wordItem.imageUrl,
+                                                        partOfSpeech = wordItem.partOfSpeech,
+                                                        modifier = Modifier
+                                                            .aspectRatio(1f)
+                                                            .combinedClickable(
+                                                                onClick = { viewModel.addCard(wordItem) },
+                                                                // ✅ 일반 카테고리는 모달 띄우기
+                                                                onLongClick = { selectedDetailCard = wordItem }
+                                                            ),
+                                                        cornerRadius = cardCornerRadius
+                                                    )
+                                                }
+                                            }
                                         } else {
-                                            // 낱말 카드
-                                            val wordDataIndex = if (hasAddButton) absoluteIndex - 1 else absoluteIndex
-
+                                            // 🔴 [최근/즐겨찾기] : 추가 버튼 없음 + 롱클릭 비활성화
+                                            val wordDataIndex = absoluteIndex
                                             if (wordDataIndex in wordList.indices) {
                                                 val wordItem = wordList[wordDataIndex]
                                                 WordCard(
@@ -257,7 +284,8 @@ fun MainScreen(
                                                         .aspectRatio(1f)
                                                         .combinedClickable(
                                                             onClick = { viewModel.addCard(wordItem) },
-                                                            onLongClick = { selectedDetailCard = wordItem }
+                                                            // ✅ 롱클릭 막음 (빈 함수) -> 모달 안 뜸
+                                                            onLongClick = {}
                                                         ),
                                                     cornerRadius = cardCornerRadius
                                                 )
@@ -272,10 +300,10 @@ fun MainScreen(
 
                         // 페이지 이동 컨트롤러
                         CardControlBar(
-                            onUpClick = { if (currentPage > 0) currentPage-- },
-                            onDownClick = { if (currentPage < maxPage) currentPage++ },
-                            canScrollUp = currentPage > 0,
-                            canScrollDown = currentPage < maxPage,
+                            onUpClick = { viewModel.setWordPageIndex(safeCurrentPage - 1) },
+                            onDownClick = { viewModel.setWordPageIndex(safeCurrentPage + 1) },
+                            canScrollUp = safeCurrentPage > 0,
+                            canScrollDown = safeCurrentPage < maxPage,
                             modifier = Modifier
                                 .width(70.dp)
                                 .fillMaxHeight()
@@ -296,7 +324,6 @@ fun MainScreen(
                     verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     if (endingWords.isEmpty()) {
-                        // ✅ 데이터가 없을 때 로딩 대신 '안내 문구' 표시
                         Box(
                             modifier = Modifier.fillMaxSize(),
                             contentAlignment = Alignment.Center
@@ -306,13 +333,12 @@ fun MainScreen(
                                     text = "어미\n없음",
                                     fontSize = 14.sp,
                                     color = Color.Gray,
-                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                    textAlign = TextAlign.Center
                                 )
                                 Spacer(modifier = Modifier.height(8.dp))
-                                // 다시 시도 버튼 (선택 사항)
                                 IconButton(onClick = { viewModel.selectCategory(viewModel.selectedCategoryIndex.value) }) {
                                     Icon(
-                                        painter = painterResource(R.drawable.ic_refresh), // 아이콘 없으면 ic_default 사용
+                                        painter = painterResource(R.drawable.ic_refresh),
                                         contentDescription = "새로고침",
                                         modifier = Modifier.size(20.dp),
                                         tint = Color.Gray
@@ -321,7 +347,6 @@ fun MainScreen(
                             }
                         }
                     } else {
-                        // ✅ 데이터가 있으면 리스트 표시
                         LazyColumn(
                             verticalArrangement = Arrangement.spacedBy(6.dp),
                             contentPadding = PaddingValues(bottom = 6.dp)
@@ -337,6 +362,7 @@ fun MainScreen(
                                         .aspectRatio(1f)
                                         .combinedClickable(
                                             onClick = { viewModel.addCard(endingItem) },
+                                            // ✅ [기능 3] 어미 카드도 꾹 누르면 상세 모달 표시
                                             onLongClick = { selectedDetailCard = endingItem }
                                         ),
                                     cornerRadius = 8.dp,
@@ -360,35 +386,38 @@ fun MainScreen(
         )
     }
 
+
     // --- 다이얼로그 처리 ---
 
-    // 1. 상세(Detail) 다이얼로그 (수정 모드가 아닐 때)
+    // 1. 상세(Detail) 다이얼로그 (꾹 눌렀을 때)
     if (selectedDetailCard != null && !showEditDialog) {
         FlashcardDetailDialog(
             card = selectedDetailCard!!,
             snackbarHostState = snackbarHostState,
             coroutineScope = coroutineScope,
             onDismiss = { selectedDetailCard = null },
+
+            // ✅ [기능 3] 뷰모델 함수 연결 완료
             onDelete = { wordItem ->
-                // 삭제 API 호출
-                viewModel.deleteWord(wordItem.cardId)
+                viewModel.deleteWord(wordItem) // ViewModel의 deleteWord(MainWordItem) 호출
                 selectedDetailCard = null
             },
-            onEdit = {
-                // 수정 모드로 전환
-                showEditDialog = true
+            onFavorite = { card, _ ->
+                viewModel.toggleFavorite(card)
             },
-            // TODO: 즐겨찾기, 재생 등 추가 구현
-            onFavorite = { _, _ -> },
-            onPlay = { }
+            onPlay = { card ->
+                viewModel.playSingleWord(context, card.word)
+            },
+            onEdit = {
+                showEditDialog = true
+            }
         )
     }
 
-    // 2. 수정(Edit) 다이얼로그 (수정 모드일 때)
+    // 2. 수정(Edit) 다이얼로그
     if (selectedDetailCard != null && showEditDialog) {
-        // 실제 수정 가능한 카테고리만 필터링 (최근사용/즐겨찾기 제외)
         val realCategories = categoryList.filter {
-            it.name != "최근 사용" && it.name != "최근사용" && it.name != "즐겨찾기"
+            it.name !in listOf("최근 사용", "최근사용", "즐겨찾기")
         }
 
         FlashcardEditDialog(
@@ -399,11 +428,11 @@ fun MainScreen(
                 selectedDetailCard = null
             },
             onSave = { newWord, newCategory, newImage ->
-                // 수정 API 호출
                 viewModel.updateWord(selectedDetailCard!!, newWord, newCategory, newImage)
                 showEditDialog = false
                 selectedDetailCard = null
             }
         )
     }
+
 }

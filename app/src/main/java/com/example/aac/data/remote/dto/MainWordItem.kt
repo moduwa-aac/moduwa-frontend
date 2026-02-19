@@ -5,6 +5,7 @@ data class MainWordItem(
     val cardId: String,
     val categoryId: String,
     val partOfSpeech: String,
+    val categoryName: String? = null,
     val word: String,
     val imageUrl: String,
     val isDefault: Boolean,
