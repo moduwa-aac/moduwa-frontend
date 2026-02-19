@@ -401,15 +401,18 @@ fun MainScreen(
 
     // 1. 상세(Detail) 다이얼로그 (꾹 눌렀을 때)
     if (selectedDetailCard != null && !showEditDialog) {
+        // 🟢 AI 문장인지 판별하는 로직 (프로젝트 데이터 구조에 맞게 수정하세요)
+        // 예: categoryId가 비어있거나 특정 ID인 경우 AI 문장으로 간주
+        val isAiCard = selectedDetailCard!!.partOfSpeech == "AI_SENTENCE"
+
         FlashcardDetailDialog(
             card = selectedDetailCard!!,
             snackbarHostState = snackbarHostState,
             coroutineScope = coroutineScope,
+            isAiSentence = isAiCard, // 🟢 1. 이 파라미터를 추가해서 넘겨줍니다!
             onDismiss = { selectedDetailCard = null },
-
-            // ✅ [기능 3] 뷰모델 함수 연결 완료
             onDelete = { wordItem ->
-                viewModel.deleteWord(wordItem) // ViewModel의 deleteWord(MainWordItem) 호출
+                viewModel.deleteWord(wordItem)
                 selectedDetailCard = null
             },
             onFavorite = { card, _ ->

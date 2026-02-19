@@ -10,7 +10,7 @@ object IconMapper {
         return when (resId) {
             R.drawable.ic_recent_use -> "ICON_RECENT"
             R.drawable.ic_favorite -> "ICON_FAVORITE"
-            R.drawable.ic_recycle -> "ICON_ENDING"
+            R.drawable.ic_ending -> "ICON_ENDING"
             R.drawable.ic_human -> "ICON_PERSON"
             R.drawable.ic_place -> "ICON_PLACE"
             R.drawable.ic_food -> "ICON_FOOD"
@@ -37,7 +37,7 @@ object IconMapper {
         return when (key) {
             "ICON_RECENT" -> R.drawable.ic_recent_use
             "ICON_FAVORITE" -> R.drawable.ic_favorite
-            "ICON_ENDING" -> R.drawable.ic_recycle
+            "ICON_ENDING" -> R.drawable.ic_ending
             "ICON_PERSON" -> R.drawable.ic_human
             "ICON_PLACE" -> R.drawable.ic_place
             "ICON_FOOD" -> R.drawable.ic_food

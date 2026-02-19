@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material3.*
@@ -35,6 +34,7 @@ fun FlashcardDetailDialog(
     coroutineScope: CoroutineScope,
     onDismiss: () -> Unit,
     onPlay: (MainWordItem) -> Unit = {},
+    isAiSentence: Boolean = false, // 🟢 AI 문장 판별 변수
     onFavorite: (MainWordItem, Boolean) -> Unit = { _, _ -> },
     onEdit: (MainWordItem) -> Unit = {},
     onDelete: (MainWordItem) -> Unit = {}
@@ -45,7 +45,7 @@ fun FlashcardDetailDialog(
     var isFavorite by remember(card) { mutableStateOf(card.isFavorite) }
     val localSnackbarHostState = remember { SnackbarHostState() }
     val pointBlue = Color(0xFF0088FF)
-    val defaultBorderColor = Color(0xFFD9D9D9) // #D9D9D9
+    val defaultBorderColor = Color(0xFFD9D9D9)
 
     if (showDeleteConfirm) {
         FlashcardDeleteConfirmDialog(
@@ -99,22 +99,29 @@ fun FlashcardDetailDialog(
                     ) {
                         Spacer(modifier = Modifier.height(40.dp))
 
-                        // ✅ [카드 낱말] WordCard 컴포넌트 사용
+                        // [카드 낱말]
                         WordCard(
                             text = card.word,
                             imageUrl = card.imageUrl,
                             partOfSpeech = card.partOfSpeech,
                             modifier = Modifier
                                 .size(175.dp)
-                                .border(1.dp, defaultBorderColor, RoundedCornerShape(16.dp)), // 테두리 추가
-                            cornerRadius = 16.dp, // 둥글기 맞춤
-                            onClick = {} // 상세 팝업에선 클릭 동작 없음
+                                .border(1.dp, defaultBorderColor, RoundedCornerShape(16.dp)),
+                            cornerRadius = 16.dp,
+                            onClick = {}
                         )
 
                         Spacer(modifier = Modifier.height(32.dp))
 
                         // [메뉴 버튼들]
-                        DetailMenuButton(text = "재생", icon = R.drawable.ic_play, containerColor = pointBlue, contentColor = Color.White, useDefaultInteraction = false, onClick = { onPlay(card) })
+                        DetailMenuButton(
+                            text = "재생",
+                            icon = R.drawable.ic_play,
+                            containerColor = pointBlue,
+                            contentColor = Color.White,
+                            useDefaultInteraction = false,
+                            onClick = { onPlay(card) }
+                        )
                         Spacer(modifier = Modifier.height(12.dp))
 
                         DetailMenuButton(
@@ -123,16 +130,33 @@ fun FlashcardDetailDialog(
                             iconTint = pointBlue,
                             onClick = {
                                 isFavorite = !isFavorite
-                                coroutineScope.launch { localSnackbarHostState.showSnackbar(if (isFavorite) "즐겨찾기에 추가했어요." else "즐겨찾기를 해제했어요.") }
+                                coroutineScope.launch {
+                                    localSnackbarHostState.showSnackbar(
+                                        if (isFavorite) "즐겨찾기에 추가했어요." else "즐겨찾기를 해제했어요."
+                                    )
+                                }
                                 onFavorite(card, isFavorite)
                             }
                         )
                         Spacer(modifier = Modifier.height(12.dp))
 
-                        DetailMenuButton(text = "수정하기", icon = R.drawable.ic_edit_2, iconTint = pointBlue, onClick = { onEdit(card) })
-                        Spacer(modifier = Modifier.height(12.dp))
+                        // 🟢 AI 문장이 아닐 때만 수정하기 버튼 렌더링
+                        if (!isAiSentence) {
+                            DetailMenuButton(
+                                text = "수정하기",
+                                icon = R.drawable.ic_edit_2,
+                                iconTint = pointBlue,
+                                onClick = { onEdit(card) }
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+                        }
 
-                        DetailMenuButton(text = "삭제하기", icon = R.drawable.ic_delete_2, contentColor = Color.Red, onClick = { showDeleteConfirm = true })
+                        DetailMenuButton(
+                            text = "삭제하기",
+                            icon = R.drawable.ic_delete_2,
+                            contentColor = Color.Red,
+                            onClick = { showDeleteConfirm = true }
+                        )
 
                         Spacer(modifier = Modifier.weight(1.2f))
                     }
@@ -160,10 +184,24 @@ fun FlashcardDetailDialog(
 }
 
 @Composable
-fun DetailMenuButton(text: String, modifier: Modifier = Modifier, icon: Int? = null, imageVector: ImageVector? = null, containerColor: Color? = null, contentColor: Color = Color.Black, iconTint: Color? = null, useDefaultInteraction: Boolean = true, onClick: () -> Unit) {
+fun DetailMenuButton(
+    text: String,
+    modifier: Modifier = Modifier,
+    icon: Int? = null,
+    imageVector: ImageVector? = null,
+    containerColor: Color? = null,
+    contentColor: Color = Color.Black,
+    iconTint: Color? = null,
+    useDefaultInteraction: Boolean = true,
+    onClick: () -> Unit
+) {
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
-    val backgroundColor = if (useDefaultInteraction) { if (isPressed) Color(0xFFC4CAD4) else Color(0xFFE2E5EA) } else { containerColor ?: Color(0xFFE2E5EA) }
+    val backgroundColor = if (useDefaultInteraction) {
+        if (isPressed) Color(0xFFC4CAD4) else Color(0xFFE2E5EA)
+    } else {
+        containerColor ?: Color(0xFFE2E5EA)
+    }
     val borderColor = Color(0xFFD9D9D9)
 
     Button(
