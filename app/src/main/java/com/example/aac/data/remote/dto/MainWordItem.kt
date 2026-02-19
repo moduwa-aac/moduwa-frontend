@@ -4,6 +4,7 @@ package com.example.aac.data.remote.dto
 data class MainWordItem(
     val cardId: String,
     val categoryId: String,
+    val categoryName: String, // 🔥 추가: 카테고리 이름
     val partOfSpeech: String,
     val word: String,
     val imageUrl: String,

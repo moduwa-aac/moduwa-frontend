@@ -1,5 +1,6 @@
 package com.example.aac.data.remote.api
 
+import android.util.Log
 import com.example.aac.data.local.TokenProvider
 import okhttp3.Interceptor
 import okhttp3.Response
@@ -10,14 +11,18 @@ class AuthInterceptor(
 
     override fun intercept(chain: Interceptor.Chain): Response {
         val originalRequest = chain.request()
-
-        // 1. Provider를 통해 토큰 가져오기 (여기서 잠깐 멈춤)
+        
+        // 🔥 runBlocking으로 DataStore에서 항상 최신 토큰을 읽어옵니다.
         val accessToken = tokenProvider.getAccessToken()
 
-        // 2. 토큰 있으면 헤더에 추가, 없으면 그냥 보냄
+        if (!accessToken.isNullOrBlank()) {
+            Log.d("NETWORK_AUTH", "🛰️ Request: ${originalRequest.url}")
+            Log.d("NETWORK_AUTH", "🔑 Using Token Prefix: ${accessToken.take(15)}...")
+        }
+
         val newRequest = if (!accessToken.isNullOrBlank()) {
             originalRequest.newBuilder()
-                .addHeader("Authorization", "Bearer $accessToken")
+                .header("Authorization", "Bearer $accessToken") // addHeader 대신 header 사용 (중복 방지)
                 .build()
         } else {
             originalRequest

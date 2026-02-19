@@ -27,15 +27,11 @@ class MainRepository {
             response.data.words.map { oldWord ->
                 MainWordItem(
                     cardId = oldWord.cardId,
-
-                    // 🔥 [해결] String? -> String 타입 불일치 해결
                     categoryId = oldWord.categoryId ?: "",
-
+                    categoryName = oldWord.categoryName ?: "미분류", // 🔥 추가: 카테고리 이름
                     partOfSpeech = oldWord.partOfSpeech,
                     word = oldWord.word,
                     imageUrl = oldWord.imageUrl ?: "",
-
-                    // 🛡️ [안전 장치] 다른 필드들도 null일 경우를 대비해 기본값 설정
                     isDefault = oldWord.isDefault ?: false,
                     isFavorite = oldWord.isFavorite,
                     displayOrder = oldWord.displayOrder ?: 0

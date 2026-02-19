@@ -1,12 +1,16 @@
 package com.example.aac.ui.features.flashcard_edit_delete
 
+import android.graphics.Bitmap
+import android.net.Uri
+import android.util.Log
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -20,18 +24,20 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -39,84 +45,73 @@ import androidx.compose.ui.window.DialogProperties
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.example.aac.R
+import com.example.aac.data.mapper.IconMapper
 import com.example.aac.data.remote.dto.MainWordItem
+import com.example.aac.domain.model.Category
 import com.example.aac.ui.components.getBackgroundColorByPartOfSpeech
 import com.example.aac.ui.components.getSafeUrl
-import kotlinx.coroutines.delay
+import com.example.aac.ui.features.category.CategoryEditData
+import com.example.aac.ui.features.category.components.CategorySelectionBottomSheet
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FlashcardEditDialog(
     card: MainWordItem?,
+    allCategories: List<Category>,
     onDismiss: () -> Unit,
-    onSave: (String) -> Unit
+    onSave: (word: String, categoryId: String, newUri: Uri?, newBitmap: Bitmap?) -> Unit
 ) {
     if (card == null) return
 
     var wordText by remember { mutableStateOf(card.word) }
-    var selectedCategory by remember { mutableStateOf("감정") }
-    var isEditingWord by remember { mutableStateOf(false) }
+    var selectedCategory by remember {
+        mutableStateOf(allCategories.find { it.id == card.categoryId })
+    }
+    
+    var selectedUri by remember { mutableStateOf<Uri?>(null) }
+    var selectedBitmap by remember { mutableStateOf<Bitmap?>(null) }
 
+    var isEditingWord by remember { mutableStateOf(false) }
     var showPhotoSheet by remember { mutableStateOf(false) }
     var showCategorySheet by remember { mutableStateOf(false) }
 
     val focusRequester = remember { FocusRequester() }
     val keyboardController = LocalSoftwareKeyboardController.current
-    val scope = rememberCoroutineScope()
-    val snackbarHostState = remember { SnackbarHostState() }
-
     val photoSheetState = rememberModalBottomSheetState()
-    val categorySheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
+    val galleryLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
+        uri?.let { 
+            selectedUri = it
+            selectedBitmap = null
+            Log.d("PHOTO_DEBUG", "수정 모달 - 갤러리 선택: $it") 
+        }
+    }
+    val cameraLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicturePreview()) { bitmap: Bitmap? ->
+        bitmap?.let { 
+            selectedBitmap = it
+            selectedUri = null
+            Log.d("PHOTO_DEBUG", "수정 모달 - 카메라 촬영") 
+        }
+    }
 
     val pointBlue = Color(0xFF0088FF)
     val lightGrayBorder = Color(0xFFDDDDDD)
     val buttonBorderColor = Color(0xFFD9D9D9)
 
-    val cardBackgroundColor = getBackgroundColorByPartOfSpeech(card.partOfSpeech)
+    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Surface(Modifier.width(520.dp).wrapContentHeight(), shape = RoundedCornerShape(24.dp), color = Color.White) {
+                Column(Modifier.padding(horizontal = 51.dp, vertical = 48.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("낱말 카드 수정", fontSize = 24.sp, fontWeight = FontWeight.Bold, modifier = Modifier.align(Alignment.Start).padding(bottom = 24.dp))
 
-    LaunchedEffect(isEditingWord) {
-        if (isEditingWord) {
-            delay(100)
-            focusRequester.requestFocus()
-            keyboardController?.show()
-        }
-    }
-
-    Dialog(
-        onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false)
-    ) {
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Surface(
-                modifier = Modifier
-                    .width(520.dp)
-                    .wrapContentHeight(),
-                shape = RoundedCornerShape(24.dp),
-                color = Color.White
-            ) {
-                Column(
-                    modifier = Modifier
-                        .padding(start = 51.dp, top = 48.dp, end = 51.dp, bottom = 48.dp)
-                        .fillMaxWidth(),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text(
-                        text = "낱말 카드 수정",
-                        fontSize = 24.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.align(Alignment.Start).padding(bottom = 24.dp)
-                    )
-
-                    // 카테고리 선택 영역
-                    Column(modifier = Modifier.width(426.dp)) {
-                        Text(text = "카테고리", fontSize = 14.sp, color = Color.Gray)
-                        Spacer(modifier = Modifier.height(4.dp))
+                    Column(Modifier.width(426.dp)) {
+                        Text("카테고리", fontSize = 14.sp, color = Color.Gray)
+                        Spacer(Modifier.height(4.dp))
                         OutlinedTextField(
-                            value = selectedCategory,
+                            value = selectedCategory?.name ?: "",
                             onValueChange = {},
                             readOnly = true,
-                            textStyle = TextStyle(fontSize = 16.sp),
                             modifier = Modifier.fillMaxWidth().height(51.dp),
                             shape = RoundedCornerShape(8.dp),
                             colors = OutlinedTextFieldDefaults.colors(
@@ -125,13 +120,12 @@ fun FlashcardEditDialog(
                                 focusedContainerColor = Color.Transparent,
                                 unfocusedContainerColor = Color.Transparent
                             ),
-                            trailingIcon = { ChangeButton(onClick = { showCategorySheet = true }) }
+                            trailingIcon = { ChangeButton { showCategorySheet = true } }
                         )
                     }
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // 낱말 이름 수정 영역
                     Column(modifier = Modifier.width(426.dp)) {
                         Text(text = "낱말", fontSize = 14.sp, color = Color.Gray)
                         Spacer(modifier = Modifier.height(4.dp))
@@ -139,146 +133,116 @@ fun FlashcardEditDialog(
                             value = wordText,
                             onValueChange = { if (isEditingWord) wordText = it },
                             readOnly = !isEditingWord,
-                            textStyle = TextStyle(fontSize = 16.sp),
                             modifier = Modifier.fillMaxWidth().height(51.dp).focusRequester(focusRequester),
                             shape = RoundedCornerShape(8.dp),
-                            singleLine = true,
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedBorderColor = if (isEditingWord) pointBlue else lightGrayBorder,
                                 unfocusedBorderColor = lightGrayBorder,
                                 focusedContainerColor = Color.Transparent,
                                 unfocusedContainerColor = Color.Transparent
                             ),
-                            trailingIcon = {
-                                if (isEditingWord) {
-                                    IconButton(onClick = { wordText = "" }) {
-                                        Icon(imageVector = Icons.Default.Clear, contentDescription = "초기화")
-                                    }
-                                } else {
-                                    ChangeButton(onClick = { isEditingWord = true })
-                                }
-                            },
+                            trailingIcon = { if (isEditingWord) IconButton({ wordText = "" }) { Icon(Icons.Default.Clear, null) } else ChangeButton { isEditingWord = true } },
                             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                            keyboardActions = KeyboardActions(onDone = {
-                                isEditingWord = false
-                                keyboardController?.hide()
-                            })
+                            keyboardActions = KeyboardActions(onDone = { isEditingWord = false; keyboardController?.hide() })
                         )
                     }
 
                     Spacer(modifier = Modifier.height(20.dp))
 
-                    // 낱말 사진 수정 영역
-                    Column(
-                        modifier = Modifier.width(426.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text(
-                            text = "낱말 사진",
-                            fontSize = 14.sp,
-                            color = Color.Gray,
-                            modifier = Modifier.align(Alignment.Start)
-                        )
+                    Column(modifier = Modifier.width(426.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(text = "낱말 사진", fontSize = 14.sp, color = Color.Gray, modifier = Modifier.align(Alignment.Start))
                         Spacer(modifier = Modifier.height(8.dp))
 
                         Box(
                             modifier = Modifier
-                                .size(160.dp)
-                                .clip(RoundedCornerShape(16.dp))
-                                .background(cardBackgroundColor) // 품사별 배경색 적용
-                                .drawBehind {
-                                    drawRoundRect(
-                                        color = pointBlue,
-                                        style = Stroke(
-                                            width = 1.5.dp.toPx(),
-                                            pathEffect = PathEffect.dashPathEffect(floatArrayOf(15f, 15f), 0f)
-                                        ),
-                                        cornerRadius = androidx.compose.ui.geometry.CornerRadius(16.dp.toPx())
-                                    )
-                                }
+                                .size(175.dp)
                                 .clickable { showPhotoSheet = true },
                             contentAlignment = Alignment.Center
                         ) {
-                            AsyncImage(
-                                model = ImageRequest.Builder(LocalContext.current)
-                                    .data(getSafeUrl(card.imageUrl))
-                                    .crossfade(true)
-                                    .build(),
-                                contentDescription = null,
+                            Box(
                                 modifier = Modifier
-                                    .fillMaxWidth(0.7f)
-                                    .aspectRatio(1f),
-                                contentScale = ContentScale.Fit,
-                                placeholder = painterResource(R.drawable.ic_launcher_foreground),
-                                error = painterResource(R.drawable.ic_launcher_foreground)
-                            )
+                                    .fillMaxSize()
+                                    .clip(RoundedCornerShape(16.dp))
+                                    .background(getBackgroundColorByPartOfSpeech(card.partOfSpeech)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                when {
+                                    selectedBitmap != null -> {
+                                        Image(
+                                            bitmap = selectedBitmap!!.asImageBitmap(),
+                                            contentDescription = null,
+                                            modifier = Modifier.fillMaxWidth(0.7f).aspectRatio(1f),
+                                            contentScale = ContentScale.Crop
+                                        )
+                                    }
+                                    selectedUri != null -> {
+                                        AsyncImage(
+                                            model = selectedUri,
+                                            contentDescription = null,
+                                            modifier = Modifier.fillMaxWidth(0.7f).aspectRatio(1f),
+                                            contentScale = ContentScale.Crop
+                                        )
+                                    }
+                                    else -> {
+                                        AsyncImage(
+                                            model = ImageRequest.Builder(LocalContext.current)
+                                                .data(getSafeUrl(card.imageUrl))
+                                                .crossfade(true)
+                                                .build(),
+                                            contentDescription = card.word,
+                                            modifier = Modifier.fillMaxWidth(0.7f).aspectRatio(1f),
+                                            contentScale = ContentScale.Fit
+                                        )
+                                    }
+                                }
+                            }
 
-                            Icon(
-                                imageVector = Icons.Default.FileUpload,
-                                contentDescription = null,
+                            val density = LocalDensity.current
+                            val stroke = with(density) {
+                                Stroke(
+                                    width = 2.dp.toPx(),
+                                    pathEffect = PathEffect.dashPathEffect(floatArrayOf(5.dp.toPx(), 5.dp.toPx()), 0f)
+                                )
+                            }
+                            Box(
                                 modifier = Modifier
-                                    .size(48.dp)
-                                    .align(Alignment.Center), // 중앙에 배치하거나 위치 조정 필요
-                                tint = Color(0xFF333333)
+                                    .fillMaxSize()
+                                    .clip(RoundedCornerShape(16.dp))
+                                    .background(Color.White.copy(alpha = 0.7f))
+                                    .drawBehind {
+                                        drawRoundRect(
+                                            color = pointBlue,
+                                            style = stroke,
+                                            cornerRadius = CornerRadius(16.dp.toPx())
+                                        )
+                                    }
                             )
                         }
 
                         Spacer(modifier = Modifier.height(12.dp))
-
-                        Text(
-                            text = "사진 업로드",
-                            fontSize = 18.sp,
-                            color = pointBlue,
-                            fontWeight = FontWeight.Bold
-                        )
+                        Text(text = "사진 업로드", color = pointBlue, fontWeight = FontWeight.Bold, fontSize = 18.sp)
                     }
 
                     Spacer(modifier = Modifier.height(40.dp))
 
-                    Row(
-                        modifier = Modifier.width(426.dp),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
+                    Row(modifier = Modifier.width(426.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         Button(
                             onClick = onDismiss,
                             modifier = Modifier.weight(1f).height(56.dp),
                             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEEEEEE)),
                             shape = RoundedCornerShape(12.dp),
                             border = BorderStroke(1.dp, buttonBorderColor)
-                        ) {
-                            Text(text = "취소", color = Color.Black, fontSize = 18.sp)
-                        }
-
+                        ) { Text("취소", color = Color.Black, fontSize = 18.sp) }
+                        
                         Button(
-                            onClick = {
-                                if (wordText.trim().isEmpty()) {
-                                    scope.launch { snackbarHostState.showSnackbar("낱말을 입력해주세요.") }
-                                } else {
-                                    onSave(wordText)
-                                }
+                            onClick = { 
+                                onSave(wordText, selectedCategory?.id ?: card.categoryId, selectedUri, selectedBitmap) 
                             },
                             modifier = Modifier.weight(1f).height(56.dp),
                             colors = ButtonDefaults.buttonColors(containerColor = pointBlue),
                             shape = RoundedCornerShape(12.dp),
                             border = BorderStroke(1.dp, buttonBorderColor)
-                        ) {
-                            Text(text = "저장", color = Color.White, fontSize = 18.sp)
-                        }
-                    }
-                }
-            }
-
-            SnackbarHost(
-                hostState = snackbarHostState,
-                modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 24.dp)
-            ) { data ->
-                Card(
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFFEBEBEB)),
-                    modifier = Modifier.height(42.dp).width(214.dp)
-                ) {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text(text = data.visuals.message, color = Color.Black, fontSize = 18.sp, modifier = Modifier.padding(horizontal = 20.dp))
+                        ) { Text("저장", color = Color.White, fontSize = 18.sp) }
                     }
                 }
             }
@@ -286,142 +250,33 @@ fun FlashcardEditDialog(
     }
 
     if (showPhotoSheet) {
-        ModalBottomSheet(onDismissRequest = { showPhotoSheet = false }, sheetState = photoSheetState, containerColor = Color.White) {
+        ModalBottomSheet({ showPhotoSheet = false }, sheetState = photoSheetState, containerColor = Color.White) {
             Column(modifier = Modifier.fillMaxWidth().padding(start = 24.dp, end = 24.dp, bottom = 40.dp)) {
-                Text(text = "사진 업로드", fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(vertical = 16.dp))
-                PhotoOptionItem(Icons.Default.PhotoLibrary, "사진에서 불러오기") { showPhotoSheet = false }
-                PhotoOptionItem(Icons.Default.AddAPhoto, "카메라로 촬영하기") { showPhotoSheet = false }
+                Text("사진 업로드", fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(vertical = 16.dp))
+                PhotoOptionItem(Icons.Default.PhotoLibrary, "사진에서 불러오기") { galleryLauncher.launch("image/*"); showPhotoSheet = false }
+                PhotoOptionItem(Icons.Default.AddAPhoto, "카메라로 촬영하기") { cameraLauncher.launch(null); showPhotoSheet = false }
             }
         }
     }
 
     if (showCategorySheet) {
-        ModalBottomSheet(
+        val displayCategories = allCategories.map { cat ->
+            // 🔥 [수정] iconUrl 필드 누락 매핑
+            CategoryEditData(
+                id = cat.id, 
+                title = cat.name, 
+                iconRes = IconMapper.toLocalResource(cat.iconKey), 
+                iconUrl = cat.iconUrl, // 👈 이 부분이 누락되어 이미지가 안 보였습니다.
+                count = cat.wordCount
+            )
+        }
+        CategorySelectionBottomSheet(
+            categoryList = displayCategories,
             onDismissRequest = { showCategorySheet = false },
-            sheetState = categorySheetState,
-            containerColor = Color.White,
-            dragHandle = { BottomSheetDefaults.DragHandle() },
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            CategorySelectionContent(
-                currentCategory = selectedCategory,
-                onCategorySelected = { selectedCategory = it },
-                onComplete = { showCategorySheet = false }
-            )
-        }
-    }
-}
-
-@Composable
-fun CategorySelectionContent(
-    currentCategory: String,
-    onCategorySelected: (String) -> Unit,
-    onComplete: () -> Unit
-) {
-    val pointBlue = Color(0xFF0088FF)
-    val categories = listOf(
-        "최근사용" to R.drawable.ic_recent_use, "즐겨찾기" to R.drawable.ic_favorite,
-        "기본" to R.drawable.ic_default, "사람" to R.drawable.ic_human,
-        "행동" to R.drawable.ic_act, "감정" to R.drawable.ic_emotion,
-        "음식" to R.drawable.ic_food, "장소" to R.drawable.ic_place,
-        "신체" to R.drawable.ic_human, "어미" to R.drawable.ic_question
-    )
-
-    val scrollState = rememberScrollState()
-    val paddingLeft = 94.dp
-
-    Column(
-        modifier = Modifier
-            .width(1280.dp)
-            .height(380.dp)
-            .background(Color.White),
-        horizontalAlignment = Alignment.Start
-    ) {
-        Spacer(modifier = Modifier.height(32.dp))
-
-        Text(
-            text = "낱말 카드를 추가할 카테고리를 선택하세요",
-            fontSize = 24.sp,
-            fontWeight = FontWeight.Bold,
-            textAlign = TextAlign.Center,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 64.dp)
-        )
-
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .horizontalScroll(scrollState)
-                .padding(start = paddingLeft),
-            horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.Start),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            categories.forEach { (name, icon) ->
-                val isSelected = name == currentCategory
-                CategoryButton(
-                    name = name,
-                    icon = icon,
-                    isSelected = isSelected,
-                    pointBlue = pointBlue,
-                    size = 86.dp,
-                    onClick = { onCategorySelected(name) }
-                )
+            onCategorySelected = { selectedData ->
+                selectedCategory = allCategories.find { it.id == selectedData.id }
+                showCategorySheet = false
             }
-        }
-
-        Spacer(modifier = Modifier.weight(1f))
-
-        Button(
-            onClick = onComplete,
-            modifier = Modifier
-                .padding(start = paddingLeft, bottom = 40.dp)
-                .width(1092.dp)
-                .height(60.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = pointBlue),
-            shape = RoundedCornerShape(12.dp),
-            border = BorderStroke(1.dp, Color(0xFFD9D9D9))
-        ) {
-            Text("완료", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-        }
-    }
-}
-
-@Composable
-fun CategoryButton(
-    name: String,
-    icon: Int,
-    isSelected: Boolean,
-    pointBlue: Color,
-    size: androidx.compose.ui.unit.Dp,
-    onClick: () -> Unit
-) {
-    Column(
-        modifier = Modifier
-            .size(size)
-            .clip(RoundedCornerShape(12.dp))
-            .background(if (isSelected) Color(0xFFE3F2FD) else Color.Transparent)
-            .border(
-                width = 1.dp,
-                color = if (isSelected) pointBlue else Color(0xFFEEEEEE),
-                shape = RoundedCornerShape(12.dp)
-            )
-            .clickable { onClick() },
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        Icon(
-            painter = painterResource(id = icon),
-            contentDescription = name,
-            modifier = Modifier.size(36.dp),
-            tint = Color.Unspecified
-        )
-        Spacer(modifier = Modifier.height(4.dp))
-        Text(
-            text = name,
-            fontSize = 12.sp,
-            color = if (isSelected) pointBlue else Color.Black,
-            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
         )
     }
 }
@@ -430,10 +285,10 @@ fun CategoryButton(
 fun ChangeButton(onClick: () -> Unit) {
     val grayColor = Color(0xFF494949)
     Row(
-        modifier = Modifier.padding(end = 20.dp).clickable { onClick() },
+        modifier = Modifier.padding(end = 20.dp).clickable(onClick = onClick),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(painterResource(id = R.drawable.ic_edit1), null, Modifier.size(18.dp), grayColor)
+        Icon(painterResource(id = R.drawable.ic_edit1), null, modifier = Modifier.size(18.dp), tint = grayColor)
         Spacer(Modifier.width(4.dp))
         Text("변경", fontSize = 14.sp, color = grayColor)
     }
@@ -444,6 +299,6 @@ fun PhotoOptionItem(icon: ImageVector, text: String, onClick: () -> Unit) {
     Row(modifier = Modifier.fillMaxWidth().clickable { onClick() }.padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
         Icon(icon, null, Modifier.size(28.dp), Color.Gray)
         Spacer(Modifier.width(16.dp))
-        Text(text, fontSize = 18.sp)
+        Text(text, fontSize = 18.sp, color = Color.Black)
     }
 }
