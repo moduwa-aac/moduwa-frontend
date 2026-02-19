@@ -46,7 +46,7 @@ fun EndingWordContent(
     onWordLongClick: (Word) -> Unit
 ) {
     val scrollState = rememberScrollState()
-    // 🔥 5개 제한 체크
+    // 5개 제한 체크
     val isEnabled = wordList.size < 5
 
     Box(
@@ -128,14 +128,14 @@ fun DashedAddCardItem(
 ) {
     val density = LocalDensity.current
     
-    // 🔥 요청하신 디자인 컬러 적용 (#0088FF)
+    // 요청하신 디자인 컬러 적용 (#0088FF)
     val brandBlue = Color(0xFF0088FF)
     val disabledColor = Color(0xFFB2B2B2)
     
     val contentColor = if (isEnabled) brandBlue else disabledColor
     val borderColor = if (isEnabled) brandBlue else disabledColor
     
-    // 🔥 점선 스타일 (2px 두께, 5:5 간격)
+    // 점선 스타일 (2px 두께, 5:5 간격)
     val stroke = with(density) {
         Stroke(
             width = 2.dp.toPx(),

@@ -38,16 +38,17 @@ fun CategoryManagementScreen(
     LaunchedEffect(serverCategories) {
         categoryList.clear()
         categoryList.addAll(
-            serverCategories.map { category ->
-                CategoryEditData(
-                    id = category.id,
-                    title = category.name,
-                    // 🔥 [수정] 직접 계산하지 않고 서버에서 온 wordCount 값을 그대로 사용
-                    count = category.wordCount, 
-                    iconRes = IconMapper.toLocalResource(category.iconKey),
-                    iconUrl = category.iconUrl
-                )
-            }
+            serverCategories
+                .filterNot { it.name == "최근사용" || it.name == "즐겨찾기" || it.name == "어미" }
+                .map { category ->
+                    CategoryEditData(
+                        id = category.id,
+                        title = category.name,
+                        count = category.wordCount, 
+                        iconRes = IconMapper.toLocalResource(category.iconKey),
+                        iconUrl = category.iconUrl
+                    )
+                }
         )
     }
 

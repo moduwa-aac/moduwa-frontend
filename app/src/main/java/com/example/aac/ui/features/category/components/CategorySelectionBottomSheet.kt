@@ -40,7 +40,7 @@ fun CategorySelectionBottomSheet(
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var selectedCategory by remember { mutableStateOf<CategoryEditData?>(null) }
 
-    // 🔥 [수정] 최근사용 및 즐겨찾기 카테고리 제외 필터링
+    // 최근사용 및 즐겨찾기 카테고리 제외 필터링
     val filteredList = remember(categoryList) {
         categoryList.filterNot { it.title == "최근사용" || it.title == "즐겨찾기" }
     }
@@ -58,7 +58,6 @@ fun CategorySelectionBottomSheet(
                 .padding(horizontal = 24.dp, vertical = 24.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // [1] 헤더
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -85,7 +84,6 @@ fun CategorySelectionBottomSheet(
                 }
             }
 
-            // [2] 리스트
             LazyVerticalGrid(
                 columns = GridCells.Fixed(13),
                 modifier = Modifier
@@ -100,7 +98,7 @@ fun CategorySelectionBottomSheet(
                         category = item,
                         isSelected = selectedCategory?.id == item.id,
                         onClick = {
-                            Log.d("SHEET_DEBUG", "👇 [클릭] ${item.title} (ID: ${item.id})")
+                            Log.d("SHEET_DEBUG", "[클릭] ${item.title} (ID: ${item.id})")
                             selectedCategory = item
                         }
                     )
@@ -109,11 +107,10 @@ fun CategorySelectionBottomSheet(
 
             Spacer(modifier = Modifier.height(30.dp))
 
-            // [3] 완료 버튼
             Button(
                 onClick = {
                     if (selectedCategory != null) {
-                        Log.d("SHEET_DEBUG", "✅ [완료] 선택된 카테고리 반환: ${selectedCategory?.title} (ID: ${selectedCategory?.id})")
+                        Log.d("SHEET_DEBUG", "[완료] 선택된 카테고리 반환: ${selectedCategory?.title} (ID: ${selectedCategory?.id})")
                         onCategorySelected(selectedCategory!!)
                         onDismissRequest()
                     } else {
@@ -159,7 +156,7 @@ fun CategoryItemCard(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        // 🔥 [로직 수정] iconUrl이 있으면 이미지 표시, 없으면 iconRes 표시
+        // iconUrl이 있으면 이미지 표시, 없으면 iconRes 표시
         Box(
             modifier = Modifier.size(32.dp),
             contentAlignment = Alignment.Center

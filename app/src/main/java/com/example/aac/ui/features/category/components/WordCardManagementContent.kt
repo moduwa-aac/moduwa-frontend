@@ -65,12 +65,12 @@ fun WordCardManagementContent(
 
     val displayCategories = remember(categories) {
         categories.map { cat ->
-            // 🔥 [수정] iconUrl 필드 누락 매핑
+            // iconUrl 필드 누락 매핑
             CategoryEditData(
                 id = cat.id,
                 title = cat.name,
                 iconRes = IconMapper.toLocalResource(cat.iconKey),
-                iconUrl = cat.iconUrl, // 👈 추가됨
+                iconUrl = cat.iconUrl,
                 count = cat.wordCount
             )
         }

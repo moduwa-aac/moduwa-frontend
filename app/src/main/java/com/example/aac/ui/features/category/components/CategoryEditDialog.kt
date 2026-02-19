@@ -77,7 +77,7 @@ fun CategoryEditDialog(
         }
     }
 
-    // 🔥 [수정] 누락되었던 ic_song 아이콘을 다시 리스트에 추가했습니다.
+    // 누락되었던 ic_song 아이콘을 다시 리스트에 추가했습니다.
     val icons = listOf(
         R.drawable.ic_human, R.drawable.ic_emotion, R.drawable.ic_act,
         R.drawable.ic_hand, R.drawable.ic_pill, R.drawable.ic_hospital, R.drawable.ic_school,

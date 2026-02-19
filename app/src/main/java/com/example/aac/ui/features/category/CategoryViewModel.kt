@@ -47,9 +47,6 @@ class CategoryViewModel(
         refreshAllData()
     }
 
-    /**
-     * 🔥 [수정] "최근사용", "즐겨찾기"를 제외한 실제 첫 번째 카테고리를 찾아 반환하는 헬퍼 함수
-     */
     private fun findFirstValidCategoryId(list: List<Category>): String? {
         return list.firstOrNull { it.name != "최근사용" && it.name != "즐겨찾기" }?.id
     }
@@ -59,7 +56,6 @@ class CategoryViewModel(
             repository.getCategories().onSuccess { categoryList ->
                 _categories.value = categoryList
                 
-                // 🔥 [수정] 초기 진입 시 "최근사용"/"즐겨찾기"를 제외한 첫 번째 카테고리 자동 선택
                 if (_selectedWordCategoryId.value == null) {
                     _selectedWordCategoryId.value = findFirstValidCategoryId(categoryList)
                 }
@@ -79,7 +75,6 @@ class CategoryViewModel(
     private suspend fun fetchCategoriesInternal() {
         repository.getCategories().onSuccess { categoryList ->
             _categories.value = categoryList
-            // 갱신 시에도 선택된 게 없다면 실제 첫 번째로
             if (_selectedWordCategoryId.value == null) {
                 _selectedWordCategoryId.value = findFirstValidCategoryId(categoryList)
             }
@@ -185,16 +180,30 @@ class CategoryViewModel(
         }
     }
 
+    /**
+     * 순서 저장 시 화면에서 보이지 않는 고정 카테고리를 포함하여 전송
+     */
     fun saveCategoryList(editedList: List<CategoryEditData>) {
         viewModelScope.launch {
-            val finalOrderMap = editedList.mapIndexedNotNull { index, item ->
-                item.id?.let { it to index }
+            // 1. 서버에 있는 전체 카테고리 중, 화면에서 숨겨진 고정 카테고리들만 추출
+            val fixedCategories = categories.value.filter { 
+                it.name == "최근사용" || it.name == "즐겨찾기" || it.name == "어미" 
+            }
+
+            // 2. 고정 카테고리들을 맨 앞에 두고, 그 뒤에 사용자가 수정한 리스트를 합침
+            val fullOrderedIds = (fixedCategories.map { it.id } + editedList.mapNotNull { it.id }).distinct()
+
+            // 3. 전체 리스트에 대한 displayOrder 맵 생성
+            val finalOrderMap = fullOrderedIds.mapIndexed { index, id ->
+                id to index
             }.toMap()
             
             if (finalOrderMap.isNotEmpty()) {
+                Log.d("CategoryViewModel", "전체 순서 저장 요청 (총 ${finalOrderMap.size}개)")
                 repository.updateCategoryOrders(finalOrderMap).onSuccess {
                     _eventFlow.emit(UiEvent.SaveCompleted)
                 }.onFailure {
+                    Log.e("CategoryViewModel", "순서 저장 API 실패: ${it.message}")
                     _eventFlow.emit(UiEvent.Error("순서 저장 실패"))
                 }
             } else {

@@ -20,14 +20,14 @@ import sh.calvin.reorderable.*
 @Composable
 fun CategoryManagementContent(
     categoryList: SnapshotStateList<CategoryEditData>,
-    // 🔥 [수정] Uri와 Bitmap을 포함하도록 콜백 타입 확장
+    // Uri와 Bitmap을 포함하도록 콜백 타입 확장
     onAddCategory: (String, Int, Uri?, Bitmap?) -> Unit,        
     onEditCategory: (String, String, Int, Uri?, Bitmap?) -> Unit, 
     onDeleteCategory: (String) -> Unit           
 ) {
 
     LaunchedEffect(categoryList.toList()) {
-        Log.d("DATA_CHECK", "📊 현재 카테고리 리스트 아이템 수: ${categoryList.size}")
+        Log.d("DATA_CHECK", " 카테고리 리스트 아이템 수: ${categoryList.size}")
     }
 
     var showEditDialog by remember { mutableStateOf(false) }
@@ -87,8 +87,7 @@ fun CategoryManagementContent(
             category = newCategoryTemplate,
             onDismissRequest = { showAddDialog = false },
             onSaveClick = { name, icon, uri, bitmap ->
-                Log.d("CATEGORY_API", "🆕 생성 요청: $name")
-                // 🔥 수정된 콜백 호출
+                Log.d("CATEGORY_API", "생성 요청: $name")
                 onAddCategory(name, icon, uri, bitmap) 
                 showAddDialog = false
             }
@@ -103,8 +102,7 @@ fun CategoryManagementContent(
             onSaveClick = { newName, newIcon, uri, bitmap ->
                 val targetId = selectedCategory!!.id
                 if (targetId != null) {
-                    Log.d("CATEGORY_API", "🔄 수정 요청 ID: $targetId")
-                    // 🔥 수정된 콜백 호출
+                    Log.d("CATEGORY_API", "수정 요청 ID: $targetId")
                     onEditCategory(targetId, newName, newIcon, uri, bitmap)
 
                     val index = categoryList.indexOfFirst { it.id == targetId }

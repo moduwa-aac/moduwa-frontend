@@ -49,7 +49,7 @@ fun AddWordCardDialog(
     var text by remember { mutableStateOf("") }
     var showPhotoSheet by remember { mutableStateOf(false) }
     
-    // 📸 선택된 이미지 상태 관리
+    // 선택된 이미지 상태 관리
     var selectedImageUri by remember { mutableStateOf<Uri?>(null) }
     var selectedBitmap by remember { mutableStateOf<Bitmap?>(null) }
     
@@ -62,7 +62,7 @@ fun AddWordCardDialog(
         uri?.let { 
             selectedImageUri = it
             selectedBitmap = null
-            Log.d("AddWordCardDialog", "📸 [갤러리 선택 완료] URI: $it")
+            Log.d("AddWordCardDialog", "[갤러리 선택 완료] URI: $it")
         }
     }
     
@@ -71,7 +71,7 @@ fun AddWordCardDialog(
         bitmap?.let { 
             selectedBitmap = it
             selectedImageUri = null
-            Log.d("AddWordCardDialog", "📸 [카메라 촬영 완료] Bitmap 수신")
+            Log.d("AddWordCardDialog", "[카메라 촬영 완료] Bitmap 수신")
         }
     }
 
@@ -216,16 +216,15 @@ fun AddWordCardDialog(
 
                     Button(
                         onClick = {
-                            // 🔥 [로그 추가] 저장 버튼 클릭 시 데이터 확인
                             Log.d("AddWordCardDialog", "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-                            Log.d("AddWordCardDialog", "💾 [저장 버튼 클릭] 낱말: $text")
+                            Log.d("AddWordCardDialog", " [저장 버튼 클릭] 낱말: $text")
                             Log.d("AddWordCardDialog", "▶ 갤러리 URI 존재: ${selectedImageUri != null}")
                             Log.d("AddWordCardDialog", "▶ 카메라 Bitmap 존재: ${selectedBitmap != null}")
 
                             if (text.isBlank()) {
                                 showCleanToast(context, "낱말을 입력해주세요.")
                             } else {
-                                Log.d("AddWordCardDialog", "✅ onSaveClick 호출 시도")
+                                Log.d("AddWordCardDialog", "onSaveClick 호출 시도")
                                 onSaveClick(text, selectedImageUri, selectedBitmap)
                             }
                         },

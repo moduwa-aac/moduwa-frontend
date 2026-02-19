@@ -189,14 +189,14 @@ fun CategoryEditListItem(
 
             Spacer(modifier = Modifier.width(12.dp))
 
-            // 🖼️ 아이콘 표시 영역 (수정됨)
+            // 아이콘 표시 영역
             Box(
                 modifier = Modifier
                     .size(70.dp)
                     .background(Color(0xFFD7E6F9), RoundedCornerShape(14.dp)),
                 contentAlignment = Alignment.Center
             ) {
-                // 🔥 [로직 수정] iconUrl이 있으면 이미지 표시, 없으면 iconRes 표시
+                // iconUrl이 있으면 이미지 표시, 없으면 iconRes 표시
                 if (!data.iconUrl.isNullOrBlank()) {
                     AsyncImage(
                         model = ImageRequest.Builder(LocalContext.current)
@@ -316,7 +316,6 @@ fun CategorySelectorBar(
             .clickable(onClick = onClick)
             .padding(horizontal = 24.dp),
         verticalAlignment = Alignment.CenterVertically) {
-        // 🔥 아이콘을 ic_category.png로 변경
         Icon(
             painter = painterResource(id = R.drawable.ic_category),
             contentDescription = null,

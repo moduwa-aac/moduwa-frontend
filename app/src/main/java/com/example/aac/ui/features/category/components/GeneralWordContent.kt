@@ -49,29 +49,37 @@ fun GeneralWordContent(
 
     val commonSpacing = 17.dp
     val tightVerticalSpacing = 8.dp
+    val verticalPadding = 16.dp // Box의 상하 패딩 합계 (8dp + 8dp)
     
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         val availableHeight = maxHeight
-        val availableWidth = maxWidth - 70.dp
+        val availableWidth = maxWidth - 70.dp // 우측 버튼 영역 제외
+        
+        // 1. 카드 크기 계산 (가로 7개 기준)
         val cardSize = (availableWidth - (commonSpacing * 6) - 32.dp) / 7
         val rowHeight = cardSize + tightVerticalSpacing
-        val maxRows = (availableHeight / rowHeight).toInt().coerceAtLeast(1)
+        
+        // 2. 카드가 잘리지 않도록 온전한 행의 개수만 계산
+        val maxRows = ((availableHeight - verticalPadding + tightVerticalSpacing) / rowHeight).toInt().coerceAtLeast(1)
         val dynamicPageSize = maxRows * 7
 
-        val totalItemsCount = uiList.size + 1
-        val maxPage = if (totalItemsCount <= 0) 0 else (totalItemsCount - 1) / dynamicPageSize
-        if (currentPage > maxPage) currentPage = maxPage
-
-        val currentDisplayItems = remember(uiList.toList(), currentPage, dynamicPageSize) {
-            val fullList = mutableListOf<Any>().apply {
-                if (currentPage == 0) add("ADD_BUTTON")
-                addAll(uiList)
-            }
-            val start = currentPage * dynamicPageSize
-            val end = minOf(start + dynamicPageSize, fullList.size)
-            if (start < fullList.size) fullList.subList(start, end).toList() else emptyList()
+        // 전체 데이터 리스트 (추가 버튼 포함하여 전체 렌더링)
+        val fullList = remember(uiList.toList()) {
+            listOf("ADD_BUTTON") + uiList
         }
 
+        val totalItemsCount = fullList.size
+        val maxPage = if (totalItemsCount <= 0) 0 else (totalItemsCount - 1) / dynamicPageSize
+        
+        // 현재 페이지가 범위를 벗어나지 않도록 보정
+        if (currentPage > maxPage) currentPage = maxPage
+
+        // 페이지 번호 변경 시 해당 위치로 부드럽게 스크롤
+        LaunchedEffect(currentPage) {
+            gridState.animateScrollToItem(currentPage * dynamicPageSize)
+        }
+
+        // 드래그 앤 드롭 상태 관리
         val reorderableState = rememberReorderableLazyGridState(gridState) { from, to ->
             if (from.key == "ADD_BUTTON" || to.key == "ADD_BUTTON") return@rememberReorderableLazyGridState
             
@@ -80,16 +88,19 @@ fun GeneralWordContent(
             
             if (fromIndex != -1 && toIndex != -1 && fromIndex != toIndex) {
                 uiList.add(toIndex, uiList.removeAt(fromIndex))
-                val orderedIds = uiList.map { it.cardId }
-                onReorder(orderedIds)
+                onReorder(uiList.map { it.cardId })
             }
         }
 
-        Row(modifier = Modifier.fillMaxSize()) {
+        Row(
+            modifier = Modifier.fillMaxSize(),
+            verticalAlignment = Alignment.Top
+        ) {
             Box(
                 modifier = Modifier
                     .weight(1f)
-                    .fillMaxHeight()
+                    // 3. 행이 잘리지 않도록 높이를 계산된 행 수만큼 정확히 고정
+                    .height(rowHeight * maxRows - tightVerticalSpacing + verticalPadding)
                     .background(Color.White, RoundedCornerShape(8.dp))
                     .padding(top = 8.dp, start = 16.dp, end = 16.dp, bottom = 8.dp)
             ) {
@@ -98,17 +109,17 @@ fun GeneralWordContent(
                     columns = GridCells.Fixed(7),
                     horizontalArrangement = Arrangement.spacedBy(commonSpacing),
                     verticalArrangement = Arrangement.spacedBy(tightVerticalSpacing),
+                    // 수동 스크롤은 막되, 드래그 시의 자동 스크롤은 허용됨
                     userScrollEnabled = false,
                     modifier = Modifier.fillMaxSize()
                 ) {
-                    items(currentDisplayItems, key = { if (it is String) it else (it as Word).cardId }) { item ->
+                    items(fullList, key = { if (it is String) it else (it as Word).cardId }) { item ->
                         if (item == "ADD_BUTTON") {
-                            // 🔥 [통합] 어미 카테고리와 동일한 점선 스타일 버튼 적용
                             DashedAddCardItem(onClick = onAddClick)
                         } else {
                             val word = item as Word
                             ReorderableItem(state = reorderableState, key = word.cardId) { isDragging ->
-                                val elevation by animateDpAsState(if (isDragging) 8.dp else 0.dp)
+                                val elevation by animateDpAsState(if (isDragging) 8.dp else 0.dp, label = "elevation")
                                 
                                 Box(
                                     modifier = Modifier
@@ -142,17 +153,18 @@ fun GeneralWordContent(
                 modifier = Modifier.width(51.dp).fillMaxHeight(),
                 verticalArrangement = Arrangement.Center
             ) {
-                ScrollButton(R.drawable.btn_up, "위로", Modifier.weight(1f)) { if (currentPage > 0) currentPage-- }
+                ScrollButton(R.drawable.btn_up, "위로", Modifier.weight(1f)) { 
+                    if (currentPage > 0) currentPage-- 
+                }
                 Spacer(modifier = Modifier.height(9.dp))
-                ScrollButton(R.drawable.btn_down, "아래로", Modifier.weight(1f)) { if (currentPage < maxPage) currentPage++ }
+                ScrollButton(R.drawable.btn_down, "아래로", Modifier.weight(1f)) { 
+                    if (currentPage < maxPage) currentPage++ 
+                }
             }
         }
     }
 }
 
-/**
- * 🔥 [통합 컴포넌트] 어미 카테고리 추가 버튼과 동일한 디자인
- */
 @Composable
 fun DashedAddCardItem(onClick: () -> Unit) {
     val density = LocalDensity.current
