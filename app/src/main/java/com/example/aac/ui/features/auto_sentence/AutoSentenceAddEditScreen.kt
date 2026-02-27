@@ -1,15 +1,22 @@
 package com.example.aac.ui.features.auto_sentence
 
 import AutoSentenceInputField
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.example.aac.R
 import com.example.aac.ui.components.CommonDeleteDialog
 import com.example.aac.ui.components.CustomTopBar
@@ -24,9 +31,13 @@ fun AutoSentenceAddEditScreen(
     initialItem: AutoSentenceItem? = null,
     onBack: () -> Unit,
     onSave: (AutoSentenceItem) -> Unit,
-    onDelete: (() -> Unit)? = null
+    onDelete: (() -> Unit)? = null,
+    routineViewModel: AutoSentenceRoutineViewModel,
+    voiceKey: String? = null
 ) {
     /* ---------- 초기 상태 ---------- */
+    val context = LocalContext.current
+
     var sentence by rememberSaveable { mutableStateOf(initialItem?.sentence ?: "") }
 
     var repeatSetting by remember {
@@ -76,7 +87,6 @@ fun AutoSentenceAddEditScreen(
     val titleText = if (mode == AutoSentenceMode.ADD) "문장 추가" else "문장 편집"
 
     val isFormValid = sentence.isNotBlank() && isRepeatSelected && isTimeSelected
-
     val saveButtonColor = if (isFormValid) Color(0xFF1C63A8) else Color(0xFFB0B0B0)
 
     /* ---------- UI ---------- */
@@ -91,6 +101,8 @@ fun AutoSentenceAddEditScreen(
                 onActionClick = {
                     if (isFormValid) {
                         val item = AutoSentenceItem(
+                            id = initialItem?.id ?: System.currentTimeMillis(),
+                            serverId = initialItem?.serverId ?: "",   // ADD면 아직 서버 id 없으니 빈 값
                             sentence = sentence,
                             repeatSetting = repeatSetting,
                             timeState = timeState
@@ -114,6 +126,32 @@ fun AutoSentenceAddEditScreen(
                 value = sentence,
                 onValueChange = { sentence = it }
             )
+
+            // ----------------------------------------------------
+            // (임시 테스트용) 미리듣기 버튼: 현재 입력한 sentence를 서버 TTS로 재생
+            // ----------------------------------------------------
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp)
+                    .background(Color(0xFF0088FF), RoundedCornerShape(8.dp))
+                    .clickable {
+                        routineViewModel.playRoutineTts(
+                            context = context,
+                            text = sentence,
+                            voiceKey = voiceKey
+                        )
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "미리듣기",
+                    color = Color.White,
+                    fontSize = 18.sp
+                )
+            }
 
             Spacer(modifier = Modifier.height(24.dp))
 
@@ -149,7 +187,7 @@ fun AutoSentenceAddEditScreen(
         // 여기 수정: 바깥 터치 dismiss 시에도 안전하게 닫히도록
         if (showRepeatSheet) {
             RepeatCycleBottomSheet(
-                onDismiss = { showRepeatSheet = false }, // BottomSheet 내부에서 hide 후 호출되게 바꾸는 게 핵심(RepeatCycleBottomSheet.kt에서 수정)
+                onDismiss = { showRepeatSheet = false },
                 onComplete = { newSetting ->
                     repeatSetting = newSetting
                     isRepeatSelected = true
@@ -187,11 +225,7 @@ fun AutoSentenceAddEditScreen(
 @Preview(showBackground = true, widthDp = 1280, heightDp = 720)
 @Composable
 fun AutoSentenceAddEditScreenPreview() {
-    AutoSentenceAddEditScreen(
-        mode = AutoSentenceMode.EDIT,
-        initialItem = null,
-        onBack = {},
-        onSave = {},
-        onDelete = {}
-    )
+    // ⚠️ Preview에서는 ViewModel/실제 Context 기반 네트워크/MediaPlayer 동작이 불가하니
+    //    임시 더미 ViewModel을 만들어 호출해야 함.
+    //    (현재 프로젝트 구조상 Preview는 생략하거나, 파라미터 없는 별도 Preview용 Composable을 만드는 걸 추천)
 }

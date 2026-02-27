@@ -14,10 +14,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
 import com.example.aac.R
 import com.example.aac.ui.components.CategoryItem
 
@@ -33,8 +35,10 @@ data class CategoryItem(
 
 @Composable
 fun CategoryBar(
-    categories: List<CategoryItem>,
+    categories: List<CategoryItem?>, // null이 섞인 8개짜리 리스트
     onCategoryClick: (Int) -> Unit,
+    onPrevClick: () -> Unit,
+    onNextClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Row(
@@ -47,65 +51,93 @@ fun CategoryBar(
         NavigationBox(
             iconRes = R.drawable.btn_prev,
             description = "이전",
-            onClick = { /* 이전 로직 */ }
+            onClick = onPrevClick
         )
 
         categories.forEachIndexed { index, item ->
-            CategoryTabItem(
-                item = item,
-                onClick = { onCategoryClick(index) },
-                modifier = Modifier.weight(1f)
-            )
-
-            val isNextSelected = (index + 1 < categories.size) && categories[index + 1].isSelected
-            if (index < categories.lastIndex && !item.isSelected && !isNextSelected) {
-                VerticalDivider(
-                    color = Color(0xFFE0E0E0),
-                    modifier = Modifier
-                        .fillMaxHeight()
-                        .width(1.dp)
+            if (item != null) {
+                // 1. 데이터가 있는 칸: 정상 작동
+                CategoryTabItem(
+                    item = item,
+                    onClick = { onCategoryClick(index) },
+                    modifier = Modifier.weight(1f)
                 )
+
+                // 구분선 로직 (다음 칸이 null이 아니고, 둘 다 선택 안 됐을 때만)
+                val nextItem = categories.getOrNull(index + 1)
+                val isNextSelected = nextItem?.isSelected ?: false
+
+                if (index < categories.lastIndex && nextItem != null && !item.isSelected && !isNextSelected) {
+                    VerticalDivider(
+                        color = Color(0xFFE0E0E0),
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            .width(1.dp)
+                    )
+                }
+            } else {
+                // 2. 데이터가 없는 칸: 클릭 안 되는 깡통 Box
+                Box(modifier = Modifier.weight(1f))
+
+                // 마지막 칸이 아니면 빈 칸 사이에도 구분선은 넣어줄지 결정 (보통은 안 넣는 게 깔끔함)
+                if (index < categories.lastIndex && categories[index + 1] != null) {
+                    // 다음 칸에 데이터가 있으면 구분선 하나 넣어줌
+                    VerticalDivider(
+                        color = Color(0xFFE0E0E0),
+                        modifier = Modifier.fillMaxHeight().width(1.dp)
+                    )
+                }
             }
         }
 
         NavigationBox(
             iconRes = R.drawable.btn_next,
             description = "다음",
-            onClick = { /* 다음 로직 */ }
+            onClick = onNextClick
         )
     }
 }
 
 @Composable
-private fun CategoryTabItem(
+fun CategoryTabItem(
     item: CategoryItem,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val backgroundColor = if (item.isSelected) CustomBlue else Color.White
-    val textColor = if(item.isSelected) Color.White else TextBlack
-
     Column(
         modifier = modifier
             .fillMaxHeight()
-            .background(backgroundColor)
-            .clickable(onClick = onClick),
+            .clickable { onClick() }
+            .background(if (item.isSelected) Color(0xFF267FD6) else Color.Transparent),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Image(
-            painter = painterResource(id = item.iconRes),
-            contentDescription = item.name,
-            modifier = Modifier.size(28.dp)
-        )
+        // iconUrl이 있으면 서버 이미지를, 없으면 로컬 리소스를 표시
+        if (!item.iconUrl.isNullOrBlank()) {
+            AsyncImage(
+                model = item.iconUrl,
+                contentDescription = item.name,
+                modifier = Modifier.size(32.dp),
+                contentScale = ContentScale.Fit,
+                // 실패 시 기본 아이콘 표시
+                error = painterResource(id = item.iconRes),
+                placeholder = painterResource(id = item.iconRes)
+            )
+        } else {
+            Icon(
+                painter = painterResource(id = item.iconRes),
+                contentDescription = item.name,
+                modifier = Modifier.size(32.dp),
+                tint = Color.Unspecified
+            )
+        }
 
         Spacer(modifier = Modifier.height(4.dp))
 
         Text(
             text = item.name,
-            fontSize = 16.sp,
-            fontWeight = FontWeight.Normal,
-            color = textColor
+            fontSize = 18.sp,
+            color = if (item.isSelected) Color.White else Color.Black,
         )
     }
 }

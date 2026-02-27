@@ -4,10 +4,11 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AddCircleOutline
+import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Dashboard
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -15,15 +16,19 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
+import com.example.aac.R
 import com.example.aac.ui.features.category.CategoryEditData
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
-import com.example.aac.R
-import androidx.compose.ui.graphics.painter.Painter // Painter import 추가
-import androidx.compose.ui.text.PlatformTextStyle
 
 // 1. 상단 탭
 @Composable
@@ -39,7 +44,6 @@ fun ManagementTabRow(
             TabRowDefaults.SecondaryIndicator(
                 Modifier.tabIndicatorOffset(tabPositions[selectedTabIndex]),
                 color = Color(0xFF0088FF)
-
             )
         }
     ) {
@@ -156,7 +160,7 @@ fun CategoryEditListItem(
     onEditClick: () -> Unit,
     onDeleteClick: () -> Unit
 ) {
-    val backgroundColor = if (isDragging) Color.White else Color.White
+    val backgroundColor = Color.White
     val shadowElevation = if (isDragging) 8.dp else 0.dp
 
     Box(
@@ -185,18 +189,34 @@ fun CategoryEditListItem(
 
             Spacer(modifier = Modifier.width(12.dp))
 
+            // 아이콘 표시 영역
             Box(
                 modifier = Modifier
-                    .requiredSize(70.dp)
+                    .size(70.dp)
                     .background(Color(0xFFD7E6F9), RoundedCornerShape(14.dp)),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(
-                    painter = painterResource(id = data.iconRes),
-                    contentDescription = null,
-                    tint = Color.Unspecified,
-                    modifier = Modifier.size(40.dp)
-                )
+                // iconUrl이 있으면 이미지 표시, 없으면 iconRes 표시
+                if (!data.iconUrl.isNullOrBlank()) {
+                    AsyncImage(
+                        model = ImageRequest.Builder(LocalContext.current)
+                            .data(data.iconUrl)
+                            .crossfade(true)
+                            .build(),
+                        contentDescription = null,
+                        modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(14.dp)),
+                        contentScale = ContentScale.Crop
+                    )
+                } else {
+                    // 아이콘 리소스가 0인 경우 방어 로직 포함
+                    val icon = if (data.iconRes != 0) data.iconRes else R.drawable.ic_default
+                    Icon(
+                        painter = painterResource(id = icon),
+                        contentDescription = null,
+                        tint = Color.Unspecified,
+                        modifier = Modifier.size(40.dp)
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.width(16.dp))
@@ -257,7 +277,7 @@ private fun EditOptionButton(
 ) {
     Column(
         modifier = Modifier
-            .requiredSize(70.dp)
+            .size(70.dp)
             .clip(RoundedCornerShape(14.dp))
             .background(backgroundColor)
             .clickable(onClick = onClick)
@@ -278,5 +298,40 @@ private fun EditOptionButton(
             color = color,
             fontWeight = FontWeight.Normal
         )
+    }
+}
+
+// 5. 카테고리 선택 바 (WordCardManagementContent에서 사용)
+@Composable
+fun CategorySelectorBar(
+    currentCategory: String,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(72.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(Color.White)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 24.dp),
+        verticalAlignment = Alignment.CenterVertically) {
+        Icon(
+            painter = painterResource(id = R.drawable.ic_category),
+            contentDescription = null,
+            tint = Color.Unspecified,
+            modifier = Modifier.size(32.dp)
+        )
+        Spacer(modifier = Modifier.width(12.dp))
+        Text(
+            text = "카테고리 선택",
+            fontSize = 20.sp,
+            fontWeight = FontWeight.Medium,
+            color = Color.Black,
+            modifier = Modifier.weight(1f)
+        )
+        Text(text = currentCategory, fontSize = 20.sp, color = Color.Gray)
+        Spacer(modifier = Modifier.width(8.dp))
+        Icon(imageVector = Icons.Default.ChevronRight, contentDescription = null, tint = Color.Gray)
     }
 }

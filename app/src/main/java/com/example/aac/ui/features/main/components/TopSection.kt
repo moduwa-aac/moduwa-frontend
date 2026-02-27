@@ -3,7 +3,8 @@ package com.example.aac.ui.features.main.components
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.clickable // ✅ 추가
+import androidx.compose.foundation.interaction.MutableInteractionSource // ✅ 추가
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
@@ -25,6 +26,8 @@ import androidx.compose.ui.unit.sp
 import com.example.aac.R
 import com.example.aac.data.remote.dto.MainWordItem
 import com.example.aac.ui.components.WordCard
+import com.example.aac.ui.util.dragAndDropItem
+import com.example.aac.ui.util.rememberDragDropState
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -32,11 +35,18 @@ fun TopSection(
     selectedCards: List<MainWordItem>,
     onRemoveCard: (Int) -> Unit,
     onClearAll: () -> Unit,
-    onNavigateToAiSentence: () -> Unit = {}
+    onMoveCard: (Int, Int) -> Unit,
+    onNavigateToAiSentence: () -> Unit = {},
+    // ✅ 재생 버튼 클릭 이벤트 추가 (2번 문장 재생 기능을 위해 미리 뚫어둠)
+    onPlaySentence: () -> Unit = {}
 ) {
     var isMultiLine by remember { mutableStateOf(false) }
-
     var deleteTargetIndex by remember { mutableIntStateOf(-1) }
+
+    // ✅ 리플 효과 없는 클릭 처리를 위한 인터랙션 소스
+    val interactionSource = remember { MutableInteractionSource() }
+
+    val dragDropState = rememberDragDropState(onMove = onMoveCard)
 
     LaunchedEffect(selectedCards) {
         deleteTargetIndex = -1
@@ -51,6 +61,13 @@ fun TopSection(
             .wrapContentHeight()
             .background(Color(0xFFD7E6F9))
             .animateContentSize()
+            // ✅ [핵심] 빈 공간 클릭 시 삭제 모드 해제
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null // 클릭 효과(물결) 없음
+            ) {
+                deleteTargetIndex = -1
+            }
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -64,22 +81,14 @@ fun TopSection(
                 .padding(vertical = 8.dp, horizontal = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            // ... (if selectedCards.isEmpty 부분 기존과 동일) ...
             if (selectedCards.isEmpty()) {
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(86.dp),
-                    contentAlignment = Alignment.CenterStart
-                ) {
-                    Text(
-                        text = "낱말 카드를 선택하세요.",
-                        fontSize = 20.sp,
-                        color = Color(0xFF999999),
-                        modifier = Modifier.padding(start = 8.dp)
-                    )
+                Box(modifier = Modifier.weight(1f).height(86.dp), contentAlignment = Alignment.CenterStart) {
+                    Text("낱말 카드를 선택하세요.", fontSize = 20.sp, color = Color(0xFF999999), modifier = Modifier.padding(start = 8.dp))
                 }
             } else {
                 FlowRow(
+                    // ... (Modifier 기존과 동일) ...
                     modifier = Modifier
                         .weight(1f)
                         .onGloballyPositioned { coordinates ->
@@ -90,36 +99,41 @@ fun TopSection(
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     selectedCards.forEachIndexed { index, card ->
-                        val isDeleteMode = (deleteTargetIndex == index)
+                        key(card.cardId) {
+                            val isDeleteMode = (deleteTargetIndex == index)
 
-                        Box(contentAlignment = Alignment.Center) {
-                            WordCard(
-                                text = card.word,
-                                imageUrl = card.imageUrl,
-                                partOfSpeech = card.partOfSpeech,
-                                modifier = Modifier.size(86.dp),
-                                cornerRadius = 8.dp,
-                                fontSize = 14.sp,
-                                iconSize = 40.dp,
-                                borderColor = if (isDeleteMode) Color.Red else null,
-                                onClick = {
-                                    if (isDeleteMode) {
-                                        onRemoveCard(index)
-                                        deleteTargetIndex = -1 // 상태 초기화
-                                    } else {
-                                        deleteTargetIndex = index
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier.dragAndDropItem(index, dragDropState)
+                            ) {
+                                WordCard(
+                                    text = card.word,
+                                    imageUrl = card.imageUrl,
+                                    partOfSpeech = card.partOfSpeech,
+                                    modifier = Modifier.size(86.dp),
+                                    cornerRadius = 8.dp,
+                                    fontSize = 14.sp,
+                                    iconSize = 40.dp,
+                                    borderColor = if (isDeleteMode) Color.Red else null,
+                                    onClick = {
+                                        if (dragDropState.draggingItemIndex == null) {
+                                            if (isDeleteMode) {
+                                                onRemoveCard(index) // 두 번째 클릭: 삭제
+                                                deleteTargetIndex = -1
+                                            } else {
+                                                deleteTargetIndex = index // 첫 번째 클릭: 삭제 모드 진입
+                                            }
+                                        }
                                     }
-                                }
-                            )
-
-                            if (isDeleteMode) {
-                                Image(
-                                    painter = painterResource(id = R.drawable.ic_delete),
-                                    contentDescription = "삭제 대기",
-                                    modifier = Modifier
-                                        .size(32.dp)
-                                        .align(Alignment.Center)
                                 )
+
+                                if (isDeleteMode) {
+                                    Image(
+                                        painter = painterResource(id = R.drawable.ic_delete),
+                                        contentDescription = "삭제",
+                                        modifier = Modifier.size(32.dp)
+                                    )
+                                }
                             }
                         }
                     }
@@ -128,7 +142,6 @@ fun TopSection(
 
             if (selectedCards.isNotEmpty()) {
                 Spacer(modifier = Modifier.width(8.dp))
-
                 IconButton(
                     onClick = {
                         onClearAll()
@@ -136,17 +149,12 @@ fun TopSection(
                     },
                     modifier = Modifier.size(24.dp)
                 ) {
-                    Icon(
-                        painter = painterResource(id = R.drawable.ic_mainx),
-                        contentDescription = "전체 삭제",
-                        tint = Color.Unspecified
-                    )
+                    Icon(painterResource(id = R.drawable.ic_mainx), "전체 삭제", tint = Color.Unspecified)
                 }
             }
         }
 
         val aiButtonEnabled = !isMultiLine && selectedCards.isNotEmpty()
-
         Surface(
             modifier = Modifier.size(92.dp),
             color = Color.Transparent,
@@ -161,29 +169,15 @@ fun TopSection(
                 modifier = Modifier
                     .fillMaxSize()
                     .background(
-                        if (aiButtonEnabled) {
-                            Brush.linearGradient(
-                                colors = listOf(Color(0xFF0080FF), Color(0xFFE8C2EC)),
-                                start = Offset(0f, Float.POSITIVE_INFINITY),
-                                end = Offset(Float.POSITIVE_INFINITY, 0f)
-                            )
+                        brush = if (aiButtonEnabled) {
+                            Brush.linearGradient(colors = listOf(Color(0xFF0080FF), Color(0xFFE8C2EC)), start = Offset(0f, Float.POSITIVE_INFINITY), end = Offset(Float.POSITIVE_INFINITY, 0f))
                         } else {
                             androidx.compose.ui.graphics.SolidColor(Color(0xFFE0E0E0))
                         }
                     )
             ) {
-                Image(
-                    painter = painterResource(R.drawable.btn_ai),
-                    contentDescription = "AI문장완성",
-                    modifier = Modifier.size(36.dp),
-                    alpha = if (aiButtonEnabled) 1f else 0.4f
-                )
-                Text(
-                    text = "문장완성",
-                    fontSize = 16.sp,
-                    color = if (aiButtonEnabled) Color.White else Color.Gray,
-                    fontWeight = FontWeight.Bold
-                )
+                Image(painter = painterResource(R.drawable.btn_ai), contentDescription = null, modifier = Modifier.size(36.dp), alpha = if (aiButtonEnabled) 1f else 0.4f)
+                Text("문장완성", fontSize = 16.sp, color = if (aiButtonEnabled) Color.White else Color.Gray, fontWeight = FontWeight.Bold)
             }
         }
 
@@ -191,7 +185,7 @@ fun TopSection(
             modifier = Modifier.size(92.dp),
             color = Color(0xFF5E9FFF),
             shape = RoundedCornerShape(12.dp),
-            onClick = { /* 재생 로직 */ },
+            onClick = { onPlaySentence() }, // 클릭 시 재생
             shadowElevation = 2.dp
         ) {
             Column(

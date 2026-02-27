@@ -1,11 +1,6 @@
 package com.example.aac.data.remote.dto
 
 // 1. 요청 (Request)
-data class AiPredictionRequest(
-    val words: List<String>,
-    val context: AiContext,
-    val refresh: Boolean = false
-)
 
 data class AiContext(
     val currentTime: String,

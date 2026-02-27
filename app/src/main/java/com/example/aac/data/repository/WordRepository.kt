@@ -11,11 +11,14 @@ class WordRepository {
         return try {
             val response = RetrofitInstance.api.getWords()
 
-            if (response.success) {
-                // Mapper를 써서 변환 후 반환
-                WordMapper.mapToDomain(response)
+            // 1. success가 true이고, data가 null이 아닐 때만 실행
+            if (response.success && response.data != null) {
+
+                // ✅ [수정] response가 아니라 response.data를 넘겨야 함!
+                WordMapper.mapToDomain(response.data)
+
             } else {
-                Log.e("WordRepository", "서버 에러: ${response.message}")
+                Log.e("WordRepository", "서버 에러 또는 데이터 없음: ${response.message}")
                 emptyList()
             }
         } catch (e: Exception) {

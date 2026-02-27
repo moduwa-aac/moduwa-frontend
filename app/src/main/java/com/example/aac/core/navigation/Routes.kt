@@ -39,11 +39,11 @@ object Routes {
     // 자동 출력 문장 추가
     const val AUTO_SENTENCE_ADD = "auto_sentence_add"
 
-    // 자동 출력 문장 편집
-    const val AUTO_SENTENCE_EDIT = "auto_sentence_edit/{itemId}"
+    // 자동 출력 문장 편집 (serverId 기반)
+    const val AUTO_SENTENCE_EDIT = "auto_sentence_edit/{serverId}"
 
-    fun autoSentenceEditRoute(itemId: Long): String =
-        "auto_sentence_edit/$itemId"
+    fun autoSentenceEditRoute(serverId: String): String =
+        "auto_sentence_edit/$serverId"
 
     // 자동 출력 문장 선택 삭제 화면
     const val AUTO_SENTENCE_SELECT_DELETE = "auto_sentence_select_delete"

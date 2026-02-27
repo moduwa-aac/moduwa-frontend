@@ -18,6 +18,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.aac.R
 import androidx.compose.foundation.clickable
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.material3.Surface
 
 val SideBarGray = Color(0xFF666666)
 
@@ -54,68 +56,68 @@ fun SmallReactionButton(
 fun CardControlBar(
     onUpClick: () -> Unit,
     onDownClick: () -> Unit,
+    canScrollUp: Boolean,
+    canScrollDown: Boolean,
     modifier: Modifier = Modifier
 ) {
-    val buttonColor = Color(0xFF64B5F6)
-
     Column(
         modifier = modifier,
         verticalArrangement = Arrangement.SpaceBetween
     ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
-            modifier = Modifier
-                .fillMaxWidth()
-                .weight(1f)
-                .clip(RoundedCornerShape(10.dp))
-                .background(buttonColor)
-                .clickable { onUpClick() }
-        ) {
-            Icon(
-                painter = painterResource(R.drawable.btn_up),
-                contentDescription = "위로",
-                modifier = Modifier.size(32.dp),
-                tint = Color.White
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            Text(
-                text = "위로",
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color.White
-            )
-        }
+        // 위로 버튼
+        ControlButton(
+            text = "위로",
+            iconRes = R.drawable.btn_up,
+            isEnabled = canScrollUp,
+            onClick = onUpClick,
+            modifier = Modifier.weight(1f).fillMaxWidth()
+        )
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
-            modifier = Modifier
-                .fillMaxWidth()
-                .weight(1f)
-                .clip(RoundedCornerShape(10.dp))
-                .background(buttonColor)
-                .clickable { onDownClick() }
-        ) {
-            Icon(
-                painter = painterResource(R.drawable.btn_down),
-                contentDescription = "아래로",
-                modifier = Modifier.size(32.dp),
-                tint = Color.White
-            )
+        // 아래로 버튼
+        ControlButton(
+            text = "아래로",
+            iconRes = R.drawable.btn_down,
+            isEnabled = canScrollDown,
+            onClick = onDownClick,
+            modifier = Modifier.weight(1f).fillMaxWidth()
+        )
+    }
+}
 
-            Spacer(modifier = Modifier.height(12.dp))
+@Composable
+private fun ControlButton(
+    text: String,
+    iconRes: Int,
+    isEnabled: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val backgroundColor = if (isEnabled) Color(0xFF5E9FFF) else Color(0xFFE0E0E0)
 
-            Text(
-                text = "아래로",
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color.White
-            )
-        }
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+        modifier = modifier
+            .clip(RoundedCornerShape(10.dp))
+            .background(backgroundColor)
+            .clickable(enabled = isEnabled) { onClick() }
+    ) {
+        Icon(
+            painter = painterResource(iconRes),
+            contentDescription = text,
+            modifier = Modifier.size(32.dp),
+            tint = Color.White
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        Text(
+            text = text,
+            fontSize = 18.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color.White
+        )
     }
 }
